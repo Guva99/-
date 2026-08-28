@@ -40,9 +40,6 @@
     var r = [rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand()];
     particles.push({
       r: r,
-      x: (r[0] * 2 - 1) * 1.4,
-      y: (r[1] * 2 - 1) * 1.4,
-      tx: 0, ty: 0,
       // мелкая «пыль» и редкие крупные ближние фигуры
       size: 1.5 + Math.pow(r[2], 5.6) * 70,
       z: r[3],
@@ -245,55 +242,50 @@
   };
 
   var FORM_SIZE = { brain: 0.2, bulb: 0.2, chart: 0.2, bubble: 0.2, envelope: 0.2 };
-  var sizeScale = 1;
-  var sizeTarget = 1;
 
-  function applyFormation(name) {
-    var fn = FORMATIONS[name] || FORMATIONS.sparse;
-    sizeTarget = FORM_SIZE[name] || 1;
-    for (var i = 0; i < particles.length; i++) {
-      var p = particles[i];
-      var t = fn(p, i);
-      p.tx = t[0];
-      p.ty = t[1];
+  /* --- сцены: каждая секция — одна фигура ---
+         Цели считаются один раз и сортируются по углу вокруг центроида,
+         поэтому частица держит своё угловое место во всех фигурах и
+         переход читается как перетекание, а не как пересборка с нуля. --- */
+  function buildTargets(fn) {
+    var pts = [];
+    var sumX = 0, sumY = 0;
+    var i;
+    for (i = 0; i < COUNT; i++) {
+      var t = fn(particles[i], i);
+      pts.push({ x: t[0], y: t[1] });
+      sumX += t[0];
+      sumY += t[1];
     }
-  }
-  applyFormation('scatter');
-  if (reduceMotion) {
-    particles.forEach(function (p) { p.x = p.tx; p.y = p.ty; });
-    sizeScale = sizeTarget;
-  }
+    var cx = sumX / COUNT, cy = sumY / COUNT;
+    for (i = 0; i < COUNT; i++) {
+      var dx = pts[i].x - cx, dy = pts[i].y - cy;
+      pts[i].ang = Math.atan2(dy, dx);
+      pts[i].rad = Math.sqrt(dx * dx + dy * dy);
+    }
+    pts.sort(function (a, b) { return a.ang - b.ang || a.rad - b.rad; });
 
-  /* --- секция → формация: по близости к центру вьюпорта,
-         чтобы прыжок скролла всегда попадал в нужную --- */
-  var zones = Array.prototype.slice.call(document.querySelectorAll('[data-formation]'));
-  var current = 'scatter';
-  var anchor = null;   // .figure-slot активной секции — фигура собирается в нём
-
-  function pickFormation() {
-    var centre = window.innerHeight / 2;
-    var best = null;
-    var bestDistance = Infinity;
-    for (var i = 0; i < zones.length; i++) {
-      var rect = zones[i].getBoundingClientRect();
-      if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
-      var distance = Math.abs((rect.top + rect.bottom) / 2 - centre);
-      if (distance < bestDistance) { bestDistance = distance; best = zones[i]; }
+    var arr = new Float32Array(COUNT * 2);
+    for (i = 0; i < COUNT; i++) {
+      arr[i * 2] = pts[i].x;
+      arr[i * 2 + 1] = pts[i].y;
     }
-    if (!best) return;
-    var name = best.dataset.formation;
-    if (name && name !== current) {
-      current = name;
-      anchor = best.querySelector('.figure-slot');
-      applyFormation(name);
-    }
+    return arr;
   }
 
-  pickFormation();
-  window.addEventListener('scroll', pickFormation, { passive: true });
-  window.addEventListener('resize', pickFormation);
+  var STAGES = Array.prototype.slice.call(document.querySelectorAll('[data-formation]'))
+    .map(function (el) {
+      var name = el.dataset.formation;
+      return {
+        el: el,
+        slot: el.querySelector('.figure-slot'),
+        pts: buildTargets(FORMATIONS[name] || FORMATIONS.scatter),
+        size: FORM_SIZE[name] || 1
+      };
+    });
+  if (!STAGES.length) return;
 
-  /* --- отрисовка --- */
+  /* --- геометрия --- */
   var width = 0, height = 0, unit = 0;
   var pointer = { x: 0, y: 0 };
   var pointerTarget = { x: 0, y: 0 };
@@ -312,6 +304,48 @@
     unit = Math.max(width, height) * 0.56;
   }
 
+  // фигура живёт в своём слоте; экран без слота занимает весь вьюпорт
+  function geometry(stage) {
+    if (stage.slot) {
+      var r = stage.slot.getBoundingClientRect();
+      return {
+        cx: r.left + r.width / 2,
+        cy: r.top + r.height / 2,
+        u: Math.min(r.width, r.height) * 0.5 / 0.7,
+        ys: 1
+      };
+    }
+    return { cx: width / 2, cy: height / 2, u: unit, ys: 0.92 };
+  }
+
+  // между какими двумя экранами мы сейчас и насколько глубоко
+  function pair() {
+    var centre = height / 2;
+    var k = 0;
+    for (var i = 0; i < STAGES.length; i++) {
+      var r = STAGES[i].el.getBoundingClientRect();
+      if (r.top + r.height / 2 - centre <= 0) k = i;
+    }
+    var a = STAGES[k];
+    var b = STAGES[Math.min(k + 1, STAGES.length - 1)];
+    var t = 0;
+    if (b !== a) {
+      var ra = a.el.getBoundingClientRect();
+      var rb = b.el.getBoundingClientRect();
+      var ca = ra.top + ra.height / 2 - centre;
+      var cb = rb.top + rb.height / 2 - centre;
+      if (cb !== ca) t = Math.max(0, Math.min(1, -ca / (cb - ca)));
+    }
+    return { a: a, b: b, t: t };
+  }
+
+  // фигура держится, пока экран близко к центру, и перетекает в средней трети пути
+  function ease(t) {
+    var e = Math.max(0, Math.min(1, (t - 0.18) / 0.64));
+    return e * e * (3 - 2 * e);
+  }
+
+  /* --- отрисовка --- */
   function draw(time) {
     ctx.clearRect(0, 0, width, height);
 
@@ -319,39 +353,30 @@
     pointer.y += (pointerTarget.y - pointer.y) * 0.04;
 
     var t = time * 0.001;
-    var cx = width / 2;
-    var cy = height / 2;
-    var u = unit;
-    var yScale = 0.92;
+    var span = pair();
+    var e = ease(span.t);
+    var ga = geometry(span.a);
+    var gb = geometry(span.b);
+    var sizeScale = span.a.size + (span.b.size - span.a.size) * e;
+    var pa = span.a.pts;
+    var pb = span.b.pts;
     var i;
-
-    if (anchor) {
-      var slot = anchor.getBoundingClientRect();
-      cx = slot.left + slot.width / 2;
-      cy = slot.top + slot.height / 2;
-      u = Math.min(slot.width, slot.height) * 0.5 / 0.7;
-      yScale = 1;
-    }
-
-    sizeScale += (sizeTarget - sizeScale) * 0.05;
 
     for (i = 0; i < buckets.length; i++) buckets[i].length = 0;
 
     for (i = 0; i < particles.length; i++) {
       var p = particles[i];
-
-      if (!reduceMotion) {
-        var ease = 0.035 + p.r[3] * 0.045;
-        p.x += (p.tx - p.x) * ease;
-        p.y += (p.ty - p.y) * ease;
-      }
-
       var depth = 0.35 + p.z * 0.65;
       var driftX = Math.sin(t * p.speed + p.phase) * 0.0075;
       var driftY = Math.cos(t * p.speed * 0.85 + p.phase) * 0.0075;
 
-      var px = cx + (p.x + driftX) * u + pointer.x * depth * 26;
-      var py = cy + (p.y + driftY) * u * yScale + pointer.y * depth * 26;
+      var ax = ga.cx + (pa[i * 2] + driftX) * ga.u;
+      var ay = ga.cy + (pa[i * 2 + 1] + driftY) * ga.u * ga.ys;
+      var bx = gb.cx + (pb[i * 2] + driftX) * gb.u;
+      var by = gb.cy + (pb[i * 2 + 1] + driftY) * gb.u * gb.ys;
+
+      var px = ax + (bx - ax) * e + pointer.x * depth * 26;
+      var py = ay + (by - ay) * e + pointer.y * depth * 26;
 
       var size = p.size * (0.55 + depth * 0.7) * sizeScale;
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
@@ -397,7 +422,16 @@
   draw(0);
   window.addEventListener('resize', function () { resize(); draw(performance.now()); });
 
-  if (reduceMotion) return;
+  if (reduceMotion) {
+    // без анимации перерисовываем только при прокрутке
+    var queued = false;
+    window.addEventListener('scroll', function () {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(function () { queued = false; draw(0); });
+    }, { passive: true });
+    return;
+  }
 
   window.addEventListener('mousemove', function (e) {
     pointerTarget.x = (e.clientX / window.innerWidth - 0.5) * 2;
