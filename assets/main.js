@@ -287,6 +287,7 @@
   var STAGES = Array.prototype.slice.call(document.querySelectorAll('[data-formation]'))
     .map(function (el) {
       var name = el.dataset.formation;
+      var scale = parseFloat(el.dataset.scale) || 1;
       return {
         el: el,
         slot: el.querySelector('.figure-slot'),
@@ -294,7 +295,9 @@
           FORMATIONS[name] || FORMATIONS.scatter,
           (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
         ),
-        size: FORM_SIZE[name] || 1
+        // треугольники растут вместе с фигурой, иначе контур редеет
+        size: (FORM_SIZE[name] || 1) * scale,
+        scale: scale
       };
     });
   if (!STAGES.length) return;
@@ -322,10 +325,13 @@
   function geometry(stage) {
     if (stage.slot) {
       var r = stage.slot.getBoundingClientRect();
+      var u = Math.min(r.width, r.height) * 0.5 / 0.7 * stage.scale;
+      // страховка от выхода за экран: по вертикали фигура занимает ~0.6 радиуса
+      u = Math.min(u, height * 0.5 / 0.6);
       return {
         cx: r.left + r.width / 2,
         cy: r.top + r.height / 2,
-        u: Math.min(r.width, r.height) * 0.5 / 0.7,
+        u: u,
         ys: 1
       };
     }

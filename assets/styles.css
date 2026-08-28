@@ -45,13 +45,14 @@ main { position: relative; z-index: 1; }
   height: min(62vmin, 560px);
 }
 
-/* Экран, где фигура занимает левую половину страницы */
+/* Экраны, где фигура уходит в левую или правую половину страницы */
 @media (min-width: 720px) {
-  .stage-left {
+  .stage-left, .stage-right {
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: center;
     justify-items: center;
   }
   .stage-left .figure-slot { grid-column: 1; }
+  .stage-right .figure-slot { grid-column: 2; }
 }
