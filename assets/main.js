@@ -327,9 +327,8 @@
 
   var PLANET = (function () {
     var RADIUS = 0.62;
-    var PERSPECTIVE = 2.6;
-    var TILT = 0.34;           // ось наклонена, смотрим чуть сверху
-    var SPIN = 30 * Math.PI / 180;  // к зрителю повёрнута долгота 60° в.д.
+    var TILT = 0.48;           // смотрим сверху, ближе к северному полюсу
+    var SPIN = 45 * Math.PI / 180;  // к зрителю повёрнута долгота 45° в.д.
     var SAMPLES = 90000;
     var golden = Math.PI * (3 - Math.sqrt(5));
 
@@ -354,10 +353,10 @@
       var z2 = y * st + z1 * ct;
       if (z2 < 0.05) continue;                 // только видимая сторона
 
-      var scale = PERSPECTIVE / (PERSPECTIVE - z2);
-      // ось X: долгота должна расти вправо (восток справа), ось Y экрана
-      // смотрит вниз, поэтому север уходит в минус
-      front.push(-x1 * scale * RADIUS, -y2 * scale * RADIUS);
+      // Ортографическая проекция без перспективы: только так силуэт шара
+      // остаётся ровной окружностью и совпадает с кольцом лимба.
+      // Ось X: долгота растёт вправо; ось Y экрана смотрит вниз, север в минус.
+      front.push(-x1 * RADIUS, -y2 * RADIUS);
     }
 
     return { pts: front, radius: RADIUS, count: front.length / 2 };
@@ -365,7 +364,7 @@
 
   // 12% частиц держат лимб, остальные ложатся на видимую сушу
   function planetFormation(p, i) {
-    var ringCount = Math.round(COUNT * 0.08);
+    var ringCount = Math.round(COUNT * 0.15);
     if (i < ringCount) {
       var a = (i / ringCount) * Math.PI * 2;
       return [Math.cos(a) * PLANET.radius, Math.sin(a) * PLANET.radius];
