@@ -3,275 +3,39 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Auros — Liquidity engineered for digital markets</title>
-<meta name="description" content="Auros — алгоритмический маркет-мейкер и провайдер ликвидности для цифровых активов. Глубина, исполнение и партнёрство на 50+ площадках." />
-<meta name="theme-color" content="#012624" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23012624'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23cbfffc' stroke-width='2'/%3E%3C/svg%3E" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<title>Частицы — фигуры по скроллу</title>
+<meta name="description" content="Фоновое поле из контурных треугольников, которое пересобирается в фигуры при скролле." />
+<meta name="theme-color" content="#FFFFFF" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fff'/%3E%3Cpath d='M16 7 26 25H6Z' fill='none' stroke='%23FD622C' stroke-width='2.5'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-<a class="skip-link" href="#main">Перейти к содержимому</a>
 
-<header class="site-header" id="top">
-  <div class="shell header-inner">
-    <a class="logo" href="#top" aria-label="Auros — на главную">
-      <span class="logo-mark" aria-hidden="true">
-        <svg viewBox="0 0 28 28" fill="none" focusable="false">
-          <circle cx="14" cy="14" r="12.5" stroke="currentColor" stroke-width="1" opacity=".45"/>
-          <circle cx="14" cy="14" r="6" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="14" cy="4" r="2" fill="currentColor"/>
-        </svg>
-      </span>
-      <span class="logo-word">Auros</span>
-    </a>
+<canvas class="scene" id="scene" aria-hidden="true"></canvas>
 
-    <nav class="site-nav" id="site-nav" aria-label="Основная навигация">
-      <a href="#about">About</a>
-      <a href="#explore">Divisions</a>
-      <a href="#capabilities">Capabilities</a>
-      <a href="#insights">Insights</a>
-    </nav>
+<main>
+  <section class="stage" data-formation="scatter"></section>
 
-    <div class="header-actions">
-      <a class="btn btn-gradient" href="#contact">Get in touch</a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Меню">
-        <span aria-hidden="true"></span><span aria-hidden="true"></span>
-      </button>
-    </div>
-  </div>
-</header>
-
-<main id="main">
-
-  <!-- HERO -->
-  <section class="hero">
-    <canvas class="hero-orb" id="orb" aria-hidden="true"></canvas>
-    <div class="hero-glow" aria-hidden="true"></div>
-    <div class="shell hero-inner">
-      <p class="label label-mist reveal">Auros</p>
-      <h1 class="hero-title reveal" data-delay="1">Liquidity engineered <br />for digital markets</h1>
-      <p class="hero-sub reveal" data-delay="2">
-        Мы строим алгоритмические системы, которые обеспечивают глубину, узкие спреды
-        и предсказуемое исполнение на более чем 50 площадках — круглосуточно.
-      </p>
-      <div class="hero-cta reveal" data-delay="3">
-        <a class="btn btn-gradient" href="#contact">Partner with us</a>
-        <a class="btn btn-ghost" href="#explore">
-          Explore divisions
-          <svg class="arrow" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 11.5 11.5 4.5M5.6 4.5h5.9v5.9" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="square"/></svg>
-        </a>
-      </div>
-      <p class="hero-micro reveal" data-delay="4">Established 2018 · Sydney · London · Hong Kong</p>
-    </div>
-    <div class="scroll-hint" aria-hidden="true"><span></span></div>
+  <section class="stage" data-formation="bulb">
+    <div class="figure-slot" aria-hidden="true"></div>
   </section>
 
-  <!-- STATS -->
-  <section class="section stats-section" id="about" aria-labelledby="stats-title">
-    <div class="shell">
-      <h2 class="visually-hidden" id="stats-title">Ключевые показатели</h2>
-      <div class="stats">
-        <div class="stat reveal">
-          <span class="stat-value" data-count-to="18.21" data-decimals="2" data-prefix="$" data-suffix="B">$18.21B</span>
-          <span class="stat-label">Monthly trading volume</span>
-        </div>
-        <div class="stat reveal" data-delay="1">
-          <span class="stat-value" data-count-to="52" data-decimals="0" data-suffix="+">52+</span>
-          <span class="stat-label">Venues connected</span>
-        </div>
-        <div class="stat reveal" data-delay="2">
-          <span class="stat-value" data-count-to="1.4" data-decimals="1" data-suffix="ms">1.4ms</span>
-          <span class="stat-label">Median order latency</span>
-        </div>
-      </div>
-    </div>
+  <section class="stage" data-formation="brain">
+    <div class="figure-slot" aria-hidden="true"></div>
   </section>
 
-  <!-- KINETIC -->
-  <section class="section kinetic-section" aria-labelledby="kinetic-title">
-    <div class="kinetic-track" aria-hidden="true">
-      <div class="kinetic-line" id="kinetic">
-        <span>We define liquidity —</span><span>We define liquidity —</span>
-      </div>
-    </div>
-    <div class="shell kinetic-body">
-      <p class="label">Approach</p>
-      <h2 class="h-lg reveal" id="kinetic-title">Глубина вместо шума</h2>
-      <p class="lead reveal" data-delay="1">
-        Auros соединяет количественные исследования, низколатентную инфраструктуру
-        и опыт традиционных рынков. Каждая стратегия проходит путь от гипотезы
-        до продакшена внутри одной команды — без посредников и без чёрных ящиков.
-      </p>
-    </div>
+  <section class="stage" data-formation="chart">
+    <div class="figure-slot" aria-hidden="true"></div>
   </section>
 
-  <!-- EXPLORE -->
-  <section class="section explore-section" id="explore" aria-labelledby="explore-title">
-    <div class="shell explore-grid">
-      <div class="explore-left">
-        <p class="label">Explore</p>
-        <h2 class="h-lg reveal" id="explore-title">Три направления</h2>
-
-        <div class="feature-rows">
-          <a class="feature-row reveal" href="#contact">
-            <div class="feature-row-text">
-              <h3>Proprietary Trading</h3>
-              <p>Собственные алгоритмы на спот-, деривативных и внебиржевых рынках. Риск-менеджмент в реальном времени, 24/7 покрытие.</p>
-            </div>
-            <span class="icon-btn" aria-hidden="true">
-              <svg viewBox="0 0 16 16" focusable="false"><path d="M4.5 11.5 11.5 4.5M5.6 4.5h5.9v5.9" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="square"/></svg>
-            </span>
-          </a>
-
-          <a class="feature-row reveal" data-delay="1" href="#contact">
-            <div class="feature-row-text">
-              <h3>Liquidity Solutions</h3>
-              <p>Маркет-мейкинг для эмитентов и площадок: измеримые KPI по спреду, глубине книги и аптайму, прозрачная отчётность.</p>
-            </div>
-            <span class="icon-btn" aria-hidden="true">
-              <svg viewBox="0 0 16 16" focusable="false"><path d="M4.5 11.5 11.5 4.5M5.6 4.5h5.9v5.9" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="square"/></svg>
-            </span>
-          </a>
-
-          <a class="feature-row reveal" data-delay="2" href="#contact">
-            <div class="feature-row-text">
-              <h3>Careers</h3>
-              <p>Инженеры, квантовые аналитики и трейдеры. Плоская структура, короткий путь от идеи до боевого контура.</p>
-            </div>
-            <span class="icon-btn" aria-hidden="true">
-              <svg viewBox="0 0 16 16" focusable="false"><path d="M4.5 11.5 11.5 4.5M5.6 4.5h5.9v5.9" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="square"/></svg>
-            </span>
-          </a>
-        </div>
-      </div>
-
-      <div class="explore-right" aria-hidden="true">
-        <svg class="molecule" viewBox="0 0 420 520" fill="none" focusable="false">
-          <g stroke="#bbc7c6" stroke-width="1" opacity=".55">
-            <path d="M96 118 L262 76 M262 76 L330 210 M330 210 L188 296 M188 296 L96 118 M188 296 L142 432 M142 432 L318 396 M318 396 L330 210 M96 118 L142 432" />
-          </g>
-          <g fill="none" stroke="#ffffff" stroke-width="1.2">
-            <circle cx="96" cy="118" r="26" />
-            <circle cx="330" cy="210" r="40" />
-            <circle cx="142" cy="432" r="20" />
-          </g>
-          <g fill="#ffffff">
-            <circle cx="262" cy="76" r="7" />
-            <circle cx="188" cy="296" r="11" />
-            <circle cx="318" cy="396" r="5" />
-          </g>
-          <circle cx="330" cy="210" r="12" fill="#cbfffc" />
-          <circle cx="96" cy="118" r="6" fill="#fde9ff" />
-          <g stroke="#707777" stroke-width="1" opacity=".4">
-            <circle cx="210" cy="260" r="176" fill="none" />
-            <circle cx="210" cy="260" r="120" fill="none" />
-          </g>
-        </svg>
-      </div>
-    </div>
+  <section class="stage" data-formation="bubble">
+    <div class="figure-slot" aria-hidden="true"></div>
   </section>
 
-  <!-- CAPABILITIES -->
-  <section class="section capabilities-section" id="capabilities" aria-labelledby="cap-title">
-    <div class="shell">
-      <p class="label">Capabilities</p>
-      <h2 class="h-md reveal" id="cap-title">Инфраструктура, которая держит рынок</h2>
-
-      <div class="card-grid">
-        <article class="surface-card reveal">
-          <span class="card-index">01</span>
-          <h3>Low-latency core</h3>
-          <p>Собственный матчинг-слой и co-located исполнение. Медианная задержка ордера — 1.4 мс от сигнала до площадки.</p>
-        </article>
-        <article class="surface-card reveal" data-delay="1">
-          <span class="card-index">02</span>
-          <h3>Risk in real time</h3>
-          <p>Позиции, лимиты и хеджирование пересчитываются непрерывно. Автоматические стоп-контуры на уровне каждой стратегии.</p>
-        </article>
-        <article class="surface-card reveal" data-delay="2">
-          <span class="card-index">03</span>
-          <h3>Transparent reporting</h3>
-          <p>Партнёры видят спред, глубину и аптайм в едином дашборде — те же метрики, по которым мы оцениваем себя.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- INSIGHTS / QUOTE -->
-  <section class="section insights-section" id="insights" aria-labelledby="insights-title">
-    <div class="shell insights-inner">
-      <p class="label">Insights</p>
-      <h2 class="visually-hidden" id="insights-title">Мнение</h2>
-      <blockquote class="pull-quote reveal">
-        «Ликвидность — это не объём. Это уверенность в том, что цена останется ценой
-        в момент, когда вы нажимаете кнопку».
-      </blockquote>
-      <p class="quote-by reveal" data-delay="1">Auros Research · Market Structure Notes</p>
-    </div>
-  </section>
-
-  <!-- CTA -->
-  <section class="section cta-section" id="contact" aria-labelledby="cta-title">
-    <div class="shell">
-      <div class="recessed-card reveal">
-        <p class="label label-mist">Get in touch</p>
-        <h2 class="h-lg" id="cta-title">Давайте построим <br />вашу ликвидность</h2>
-        <p class="lead">Расскажите о площадке, токене или мандате — ответим в течение одного рабочего дня.</p>
-        <form class="cta-form" novalidate>
-          <label class="visually-hidden" for="email">Рабочая почта</label>
-          <input id="email" name="email" type="email" inputmode="email" placeholder="you@company.com" autocomplete="email" required />
-          <button class="btn btn-gradient" type="submit">Request access</button>
-          <p class="form-note" role="status" aria-live="polite"></p>
-        </form>
-      </div>
-    </div>
+  <section class="stage" data-formation="envelope">
+    <div class="figure-slot" aria-hidden="true"></div>
   </section>
 </main>
-
-<footer class="site-footer">
-  <div class="shell footer-grid">
-    <div class="footer-brand">
-      <a class="logo" href="#top" aria-label="Auros — на главную">
-        <span class="logo-mark" aria-hidden="true">
-          <svg viewBox="0 0 28 28" fill="none" focusable="false">
-            <circle cx="14" cy="14" r="12.5" stroke="currentColor" stroke-width="1" opacity=".45"/>
-            <circle cx="14" cy="14" r="6" stroke="currentColor" stroke-width="1.4"/>
-            <circle cx="14" cy="4" r="2" fill="currentColor"/>
-          </svg>
-        </span>
-        <span class="logo-word">Auros</span>
-      </a>
-      <p>Algorithmic market making for digital assets.</p>
-    </div>
-
-    <nav class="footer-col" aria-labelledby="f-company">
-      <p class="label" id="f-company">Company</p>
-      <a href="#about">About</a>
-      <a href="#explore">Divisions</a>
-      <a href="#capabilities">Capabilities</a>
-      <a href="#contact">Careers</a>
-    </nav>
-
-    <nav class="footer-col" aria-labelledby="f-connect">
-      <p class="label" id="f-connect">Connect</p>
-      <a href="#contact">Partnerships</a>
-      <a href="#contact">Media</a>
-      <a href="#insights">Research</a>
-    </nav>
-
-    <div class="footer-col">
-      <p class="label">Offices</p>
-      <p class="footer-text">Sydney · London<br />Hong Kong · Dubai</p>
-    </div>
-  </div>
-  <div class="shell footer-bottom">
-    <p>© <span id="year">2026</span> Auros. All rights reserved.</p>
-    <p>Terms · Privacy · Disclosures</p>
-  </div>
-</footer>
 
 <script src="assets/main.js" defer></script>
 </body>
