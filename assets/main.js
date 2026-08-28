@@ -10,10 +10,11 @@
   if (!canvas || !canvas.getContext) return;
   var ctx = canvas.getContext('2d');
 
-  // На светлом фоне поле ведут серые токены, оранжевый — редкая пунктуация
+  // На белом почти не работают светлые токены, поэтому поле ведут
+  // оранжевые акценты и средние серые
   var PALETTE = [
-    ['#E8E8E8', 32], ['#BFBFBF', 22], ['#FFDBCE', 14],
-    ['#FD622C', 12], ['#FC5922', 8], ['#C24A22', 6], ['#7B7B7B', 6]
+    ['#FD622C', 26], ['#FC5922', 16], ['#C24A22', 12], ['#FFDBCE', 10],
+    ['#BFBFBF', 14], ['#7B7B7B', 12], ['#4B4B4B', 10]
   ];
   var COLORS = PALETTE.map(function (p) { return p[0]; });
   var PICK = [];
@@ -241,120 +242,137 @@
     envelope: shapeFormation(SHAPES.envelope, 0.62)
   };
 
-  var FORM_SIZE = { brain: 0.2, bulb: 0.2, planet: 0.32, chart: 0.2, bubble: 0.2, envelope: 0.2 };
+  var FORM_SIZE = { brain: 0.2, bulb: 0.2, planet: 0.22, chart: 0.2, bubble: 0.2, envelope: 0.2 };
   // насколько фигура выкручивает непрозрачность — на белом сфера иначе тонет
-  var FORM_BOOST = { planet: 1.9 };
+  var FORM_BOOST = { planet: 1.8 };
+  // у планеты точки держим примерно одного калибра: мелкая «пыль» уходит
+  // в доли пикселя, а редкие гиганты зашумляют материки
+  var FORM_FLOOR = { planet: 3.4 };
+  var FORM_CEIL = { planet: 8 };
 
-  /* --- планета: единственная фигура, которая живёт во времени ---
-         точки лежат на сфере, каждый кадр вращаются вокруг оси и
-         проецируются в перспективе; задняя полусфера гаснет --- */
-  function isLand(lat, lon) {
-    // грубые материки: набор эллипсов в градусах с рваным краем
-    var blobs = [
-      [20, 8, 30, 38], [16, 48, 22, 14], [92, 46, 46, 24],
-      [108, 18, 22, 18], [133, -25, 20, 13], [-100, 45, 28, 22],
-      [-60, -18, 18, 26], [-45, 72, 20, 10]
-    ];
-    var wobble = 1 + 0.2 * Math.sin(lon * 0.12 + lat * 0.09) + 0.12 * Math.sin(lat * 0.21);
-    for (var i = 0; i < blobs.length; i++) {
-      var b = blobs[i];
-      var dx = (lon - b[0]) / b[2];
-      var dy = (lat - b[1]) / b[3];
-      if (dx * dx + dy * dy < wobble) return true;
-    }
-    return false;
-  }
+  /* --- планета: шар с материками ---
+         Контуры материков задаются полигонами в градусах долготы и широты,
+         растеризуются в равнопромежуточную маску, после чего точки сферы
+         проверяются по ней. Поворот зафиксирован так, чтобы к зрителю были
+         повёрнуты Европа, Россия и Индия. --- */
+  var LANDS = [
+    // Африка
+    [[-17,14],[-17,21],[-13,28],[-10,31],[-6,36],[1,37],[10,37],[20,33],[25,32],[32,31],
+     [35,24],[38,18],[43,12],[48,12],[51,11],[45,2],[41,-2],[40,-11],[35,-20],[33,-26],
+     [28,-31],[25,-34],[19,-35],[15,-27],[12,-18],[11,-8],[9,-1],[9,4],[5,5],[-2,5],
+     [-8,4],[-13,9]],
+    // Евразия
+    [[-9,43],[-2,43],[-2,48],[1,50],[4,52],[7,54],[10,57],[12,55],[19,54],[21,56],
+     [24,57],[28,59],[30,60],[29,65],[31,70],[41,68],[55,68],[60,70],[70,73],[80,73],
+     [90,76],[105,77],[115,74],[130,73],[140,72],[150,70],[160,70],[170,68],[179,66],
+     [178,64],[170,60],[163,58],[160,53],[156,51],[148,46],[143,44],[140,45],[136,48],
+     [133,44],[130,43],[129,40],[126,39],[122,40],[122,37],[119,35],[121,32],[122,30],
+     [118,24],[110,21],[108,15],[106,10],[105,9],[103,4],[100,7],[98,10],[98,14],
+     [94,16],[92,21],[89,22],[87,20],[82,17],[80,13],[78,6],[75,12],[72,18],[70,22],
+     [67,24],[64,25],[61,25],[58,25],[57,22],[55,17],[52,13],[45,13],[43,17],[39,21],
+     [36,28],[34,31],[36,36],[30,37],[27,37],[23,38],[23,40],[19,40],[16,41],[13,45],
+     [12,44],[8,44],[4,43],[3,42],[0,39],[-1,37],[-5,36],[-6,37],[-9,38]],
+    // Скандинавия
+    [[5,58],[8,58],[11,59],[13,58],[18,60],[21,63],[24,66],[28,70],[31,70],[29,66],
+     [25,63],[22,60],[19,58],[15,56],[11,55],[8,57]],
+    // Британские острова
+    [[-5,50],[-6,54],[-3,58],[0,58],[1,53],[-2,51]],
+    // Гренландия
+    [[-45,60],[-52,64],[-55,70],[-45,78],[-30,82],[-20,78],[-22,70],[-32,64]],
+    // Северная Америка
+    [[-125,49],[-130,55],[-140,60],[-155,60],[-165,65],[-160,70],[-140,70],[-125,70],
+     [-110,68],[-95,68],[-80,65],[-65,60],[-60,50],[-70,45],[-75,40],[-80,32],[-82,28],
+     [-90,29],[-97,26],[-98,20],[-95,17],[-88,15],[-84,10],[-78,8],[-83,15],[-90,20],
+     [-105,22],[-110,30],[-117,32],[-122,37],[-124,42]],
+    // Южная Америка
+    [[-78,8],[-75,0],[-70,-5],[-72,-15],[-70,-20],[-71,-30],[-73,-45],[-75,-52],
+     [-68,-55],[-65,-45],[-62,-40],[-57,-35],[-53,-33],[-48,-25],[-40,-20],[-35,-8],
+     [-45,-2],[-50,0],[-60,5],[-70,10]],
+    // Австралия
+    [[114,-22],[113,-26],[115,-34],[122,-34],[129,-32],[137,-35],[140,-38],[146,-39],
+     [150,-37],[153,-28],[146,-19],[142,-11],[136,-12],[130,-11],[125,-14],[122,-18]],
+    // Мадагаскар, Шри-Ланка, Япония, Индонезия
+    [[44,-16],[50,-15],[50,-24],[45,-25],[43,-21]],
+    [[80,9],[82,8],[82,6],[80,6]],
+    [[130,32],[135,34],[140,37],[142,43],[145,44],[141,40],[137,35],[132,32]],
+    [[95,5],[105,0],[115,-3],[120,-8],[130,-6],[140,-5],[140,-8],[128,-9],[115,-9],
+     [105,-7],[98,1]]
+  ];
 
-  function makePlanet() {
-    var pr = rng(31337);
-    var SAMPLES = 24000;
+  var landMask = (function () {
+    var W = 720, H = 360;
+    var off = document.createElement('canvas');
+    off.width = W;
+    off.height = H;
+    var mctx = off.getContext('2d');
+    mctx.fillStyle = '#000';
+    LANDS.forEach(function (poly) {
+      mctx.beginPath();
+      poly.forEach(function (pt, k) {
+        var x = (pt[0] + 180) / 360 * W;
+        var y = (90 - pt[1]) / 180 * H;
+        if (k === 0) mctx.moveTo(x, y); else mctx.lineTo(x, y);
+      });
+      mctx.closePath();
+      mctx.fill();
+    });
+    var data = mctx.getImageData(0, 0, W, H).data;
+    return function (lat, lon) {
+      var x = Math.floor((lon + 180) / 360 * W);
+      var y = Math.floor((90 - lat) / 180 * H);
+      if (x < 0 || x >= W || y < 0 || y >= H) return false;
+      return data[(y * W + x) * 4 + 3] > 128;
+    };
+  })();
+
+  var PLANET = (function () {
+    var RADIUS = 0.62;
+    var PERSPECTIVE = 2.6;
+    var TILT = 0.34;           // ось наклонена, смотрим чуть сверху
+    var SPIN = 30 * Math.PI / 180;  // к зрителю повёрнута долгота 60° в.д.
+    var SAMPLES = 90000;
     var golden = Math.PI * (3 - Math.sqrt(5));
-    var land = [];
-    var all = [];
+
+    var ca = Math.cos(SPIN), sa = Math.sin(SPIN);
+    var ct = Math.cos(TILT), st = Math.sin(TILT);
+    var front = [];
 
     for (var i = 0; i < SAMPLES; i++) {
       var y = 1 - (i / (SAMPLES - 1)) * 2;
       var r = Math.sqrt(Math.max(0, 1 - y * y));
       var th = golden * i;
-      var pt = [Math.cos(th) * r, y, Math.sin(th) * r];
-      all.push(pt);
+      var x = Math.cos(th) * r;
+      var z = Math.sin(th) * r;
+
       var lat = Math.asin(y) * 180 / Math.PI;
-      var lon = Math.atan2(pt[2], pt[0]) * 180 / Math.PI;
-      if (isLand(lat, lon)) land.push(pt);
+      var lon = Math.atan2(z, x) * 180 / Math.PI;
+      if (!landMask(lat, lon)) continue;
+
+      var x1 = x * ca - z * sa;
+      var z1 = x * sa + z * ca;
+      var y2 = y * ct - z1 * st;
+      var z2 = y * st + z1 * ct;
+      if (z2 < 0.05) continue;                 // только видимая сторона
+
+      var scale = PERSPECTIVE / (PERSPECTIVE - z2);
+      // ось X: долгота должна расти вправо (восток справа), ось Y экрана
+      // смотрит вниз, поэтому север уходит в минус
+      front.push(-x1 * scale * RADIUS, -y2 * scale * RADIUS);
     }
 
-    // почти все частицы ложатся на сушу; отдельная доля держит лимб —
-    // без чёткого края шар на белом не читается
-    var RING_SHARE = 0.12;
-    var LAND_SHARE = 0.76;
-    var entries = [];
-    for (i = 0; i < COUNT; i++) {
-      if (i < COUNT * RING_SHARE) {
-        entries.push({ ring: true, ang: (i / (COUNT * RING_SHARE)) * Math.PI * 2 });
-      } else {
-        var src = (i < COUNT * (RING_SHARE + LAND_SHARE) && land.length) ? land : all;
-        var pt = src[(pr() * src.length) | 0];
-        entries.push({ ring: false, x: pt[0], y: pt[1], z: pt[2] });
-      }
+    return { pts: front, radius: RADIUS, count: front.length / 2 };
+  })();
+
+  // 12% частиц держат лимб, остальные ложатся на видимую сушу
+  function planetFormation(p, i) {
+    var ringCount = Math.round(COUNT * 0.08);
+    if (i < ringCount) {
+      var a = (i / ringCount) * Math.PI * 2;
+      return [Math.cos(a) * PLANET.radius, Math.sin(a) * PLANET.radius];
     }
-    // порядок по углу — чтобы перетекание в планету и из неё было связным
-    entries.forEach(function (e) {
-      e.key = e.ring ? e.ang - Math.PI : Math.atan2(e.y, e.x);
-    });
-    entries.sort(function (a, b) { return a.key - b.key; });
-
-    var sphere = new Float32Array(COUNT * 3);
-    var isRing = new Uint8Array(COUNT);
-    var ringAng = new Float32Array(COUNT);
-    for (i = 0; i < COUNT; i++) {
-      if (entries[i].ring) {
-        isRing[i] = 1;
-        ringAng[i] = entries[i].ang;
-      } else {
-        sphere[i * 3] = entries[i].x;
-        sphere[i * 3 + 1] = entries[i].y;
-        sphere[i * 3 + 2] = entries[i].z;
-      }
-    }
-
-    var pts = new Float32Array(COUNT * 2);
-    var vis = new Float32Array(COUNT);
-    var RADIUS = 0.62;
-    var PERSPECTIVE = 2.6;
-    var TILT = -0.36;
-
-    function update(time) {
-      var a = time * 0.12;                       // оборот примерно за 52 секунды
-      var ca = Math.cos(a), sa = Math.sin(a);
-      var ct = Math.cos(TILT), st = Math.sin(TILT);
-
-      for (var i = 0; i < COUNT; i++) {
-        if (isRing[i]) {
-          // лимб стоит на месте, пока материки под ним вращаются
-          pts[i * 2] = Math.cos(ringAng[i]) * RADIUS;
-          pts[i * 2 + 1] = Math.sin(ringAng[i]) * RADIUS;
-          vis[i] = 1;
-          continue;
-        }
-        var x = sphere[i * 3], y = sphere[i * 3 + 1], z = sphere[i * 3 + 2];
-
-        var x1 = x * ca - z * sa;
-        var z1 = x * sa + z * ca;
-        var y2 = y * ct - z1 * st;
-        var z2 = y * st + z1 * ct;
-
-        var scale = PERSPECTIVE / (PERSPECTIVE - z2);
-        pts[i * 2] = x1 * scale * RADIUS;
-        pts[i * 2 + 1] = y2 * scale * RADIUS;
-
-        // дальняя сторона почти гаснет, ближняя идёт в полную силу
-        var f = Math.max(0, Math.min(1, (z2 + 0.15) / 0.6));
-        vis[i] = 0.1 + 0.9 * (f * f * (3 - 2 * f));
-      }
-    }
-
-    update(0);
-    return { pts: pts, vis: vis, update: update };
+    var n = PLANET.pts.length / 2;
+    var j = ((i - ringCount) * 7919) % n;
+    return [PLANET.pts[j * 2], PLANET.pts[j * 2 + 1]];
   }
 
   /* --- сцены: каждая секция — одна фигура ---
@@ -408,19 +426,14 @@
         // треугольники растут вместе с фигурой, иначе контур редеет
         size: (FORM_SIZE[name] || 1) * scale,
         boost: FORM_BOOST[name] || 1,
+        floor: (FORM_FLOOR[name] || 0) * scale,
+        ceil: (FORM_CEIL[name] || 0) * scale,
         scale: scale
       };
-      if (name === 'planet') {
-        var planet = makePlanet();
-        stage.pts = planet.pts;
-        stage.vis = planet.vis;
-        stage.update = planet.update;
-      } else {
-        stage.pts = buildTargets(
-          FORMATIONS[name] || FORMATIONS.scatter,
-          (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
-        );
-      }
+      stage.pts = buildTargets(
+        name === 'planet' ? planetFormation : (FORMATIONS[name] || FORMATIONS.scatter),
+        (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
+      );
       return stage;
     });
   if (!STAGES.length) return;
@@ -499,14 +512,12 @@
     var gb = geometry(span.b);
     var sizeScale = span.a.size + (span.b.size - span.a.size) * e;
     var boost = span.a.boost + (span.b.boost - span.a.boost) * e;
+    var floor = span.a.floor + (span.b.floor - span.a.floor) * e;
+    var ceil = span.a.ceil + (span.b.ceil - span.a.ceil) * e;
     var pa = span.a.pts;
     var pb = span.b.pts;
-    var va = span.a.vis;
-    var vb = span.b.vis;
     var i;
 
-    if (span.a.update) span.a.update(t);
-    if (span.b.update && span.b !== span.a) span.b.update(t);
 
     for (i = 0; i < buckets.length; i++) buckets[i].length = 0;
 
@@ -525,6 +536,8 @@
       var py = ay + (by - ay) * e + pointer.y * depth * 26;
 
       var size = p.size * (0.55 + depth * 0.7) * sizeScale;
+      if (floor > size) size = floor;
+      if (ceil > 0 && size > ceil) size = ceil;
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // крупные фигуры читаются как ближние и расфокусированные — держим их бледными
@@ -532,12 +545,6 @@
       var twinkle = 0.66 + 0.34 * Math.sin(t * 1.15 + p.phase * 2);
       var alpha = (1 - big * 0.62) * (0.55 + depth * 0.45) * twinkle;
 
-      // у живых фигур своя видимость — дальняя сторона планеты гаснет
-      if (va || vb) {
-        var v1 = va ? va[i] : 1;
-        var v2 = vb ? vb[i] : 1;
-        alpha *= v1 + (v2 - v1) * e;
-      }
       alpha = Math.min(1, alpha * boost);
 
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
