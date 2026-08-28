@@ -44,3 +44,14 @@ main { position: relative; z-index: 1; }
   width: min(62vmin, 560px);
   height: min(62vmin, 560px);
 }
+
+/* Экран, где фигура занимает левую половину страницы */
+@media (min-width: 720px) {
+  .stage-left {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    justify-items: center;
+  }
+  .stage-left .figure-slot { grid-column: 1; }
+}

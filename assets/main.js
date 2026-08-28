@@ -247,7 +247,7 @@
          Цели считаются один раз и сортируются по углу вокруг центроида,
          поэтому частица держит своё угловое место во всех фигурах и
          переход читается как перетекание, а не как пересборка с нуля. --- */
-  function buildTargets(fn) {
+  function buildTargets(fn, rotate) {
     var pts = [];
     var sumX = 0, sumY = 0;
     var i;
@@ -258,6 +258,17 @@
       sumY += t[1];
     }
     var cx = sumX / COUNT, cy = sumY / COUNT;
+
+    // поворот вокруг центроида фигуры
+    if (rotate) {
+      var cos = Math.cos(rotate), sin = Math.sin(rotate);
+      for (i = 0; i < COUNT; i++) {
+        var rx = pts[i].x - cx, ry = pts[i].y - cy;
+        pts[i].x = cx + rx * cos - ry * sin;
+        pts[i].y = cy + rx * sin + ry * cos;
+      }
+    }
+
     for (i = 0; i < COUNT; i++) {
       var dx = pts[i].x - cx, dy = pts[i].y - cy;
       pts[i].ang = Math.atan2(dy, dx);
@@ -279,7 +290,10 @@
       return {
         el: el,
         slot: el.querySelector('.figure-slot'),
-        pts: buildTargets(FORMATIONS[name] || FORMATIONS.scatter),
+        pts: buildTargets(
+          FORMATIONS[name] || FORMATIONS.scatter,
+          (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
+        ),
         size: FORM_SIZE[name] || 1
       };
     });
