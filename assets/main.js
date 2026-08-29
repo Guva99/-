@@ -42,7 +42,7 @@
     particles.push({
       r: r,
       // единый калибр: размер не меняется от сцены к сцене
-      size: 1.4 + Math.pow(r[2], 2.2) * 4,
+      size: 1.2 + Math.pow(r[2], 2.2) * 3.4,
       z: r[3],
       color: PICK[(r[4] * PICK.length) | 0],
       rot: r[5] * Math.PI * 2,
@@ -660,7 +660,7 @@
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // самые крупные держим чуть бледнее — они читаются как ближние
-      var big = Math.min(1, (p.size - 1.4) / 4);
+      var big = Math.min(1, (p.size - 1.2) / 3.4);
       var twinkle = 0.66 + 0.34 * Math.sin(t * 1.15 + p.phase * 2);
       var alpha = (1 - big * 0.62) * (0.55 + depth * 0.45) * twinkle;
 
@@ -673,7 +673,7 @@
       alpha = Math.min(1, alpha * boost);
 
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
-      var lwStep = size > 4.6 ? 2 : (size > 3 ? 1 : 0);
+      var lwStep = size > 3.9 ? 2 : (size > 2.6 ? 1 : 0);
       var bucket = (p.color * ALPHA_STEPS + aStep) * LINE_WIDTHS.length + lwStep;
 
       buckets[bucket].push(px, py, size * 0.5, p.rot + t * p.spin);
