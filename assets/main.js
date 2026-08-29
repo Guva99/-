@@ -118,7 +118,7 @@
   var SHAPES = {
     // лампочка — инсайт
     bulb: rasterise(function (c) {
-      c.lineWidth = 4.5;
+      c.lineWidth = 3.5;
       c.beginPath(); c.arc(110, 88, 46, 0, Math.PI * 2); c.stroke();
       c.beginPath();
       c.moveTo(88, 130); c.lineTo(88, 150);
@@ -220,7 +220,7 @@
   }
 
   var ICONS = [
-    { hex: '#8052FF', px: -0.62, py: -0.33, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#8052FF', px: -0.62, py: -0.33, s: 0.1, pool: iconStroke(function (c) {
       // ИИ — четырёхлучевая искра и малая рядом
       c.beginPath();
       c.moveTo(104, 32);
@@ -239,7 +239,7 @@
       c.closePath();
       c.stroke();
     }) },
-    { hex: '#FD622C', px: -0.62, py: 0.0, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#FD622C', px: -0.62, py: 0.0, s: 0.1, pool: iconStroke(function (c) {
       // чат — облако реплики с хвостом
       c.beginPath();
       if (c.roundRect) c.roundRect(36, 52, 148, 96, 20); else c.rect(36, 52, 148, 96);
@@ -248,7 +248,7 @@
       c.moveTo(80, 148); c.lineTo(64, 186); c.lineTo(114, 148);
       c.stroke();
     }) },
-    { hex: '#22A06B', px: -0.62, py: 0.33, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#22A06B', px: -0.62, py: 0.33, s: 0.1, pool: iconStroke(function (c) {
       // доставка — объёмная коробка
       c.beginPath();
       c.moveTo(110, 34); c.lineTo(176, 68); c.lineTo(176, 140);
@@ -261,7 +261,7 @@
       c.moveTo(110, 102); c.lineTo(110, 174);
       c.stroke();
     }) },
-    { hex: '#E5484D', px: 0.62, py: -0.33, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#E5484D', px: 0.62, py: -0.33, s: 0.1, pool: iconStroke(function (c) {
       // конструктор сайта — окно браузера с блоком
       c.beginPath();
       if (c.roundRect) c.roundRect(30, 48, 160, 112, 10); else c.rect(30, 48, 160, 112);
@@ -277,7 +277,7 @@
       c.moveTo(116, 132); c.lineTo(158, 132);
       c.stroke();
     }) },
-    { hex: '#3B82F6', px: 0.62, py: 0.0, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#3B82F6', px: 0.62, py: 0.0, s: 0.1, pool: iconStroke(function (c) {
       // CRM — контакт: голова и плечи
       c.beginPath(); c.arc(110, 76, 30, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -285,7 +285,7 @@
       c.bezierCurveTo(54, 122, 166, 122, 166, 170);
       c.stroke();
     }) },
-    { hex: '#FF5FA2', px: 0.62, py: 0.33, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#FF5FA2', px: 0.62, py: 0.33, s: 0.1, pool: iconStroke(function (c) {
       // таймер — циферблат со стрелками и кнопкой
       c.beginPath(); c.arc(110, 124, 56, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -337,12 +337,12 @@
     // распыление плотное слева и плавно тающее вправо;
     // поверх него шесть цветных иконок сервисов
     cubes: function (p, i) {
-      if (p.r[6] < 0.72) {
+      if (p.r[6] < 0.66) {
         // степенное распределение: слева плотно, вправо плавный хвост
         var x = -1.02 + Math.pow(p.r[0], 3.4) * 2.15;
         return [x, (p.r[1] * 2 - 1) * 0.62];
       }
-      var k = Math.min(ICONS.length - 1, (((p.r[6] - 0.72) / 0.28) * ICONS.length) | 0);
+      var k = Math.min(ICONS.length - 1, (((p.r[6] - 0.66) / 0.34) * ICONS.length) | 0);
       var ic = ICONS[k];
       var n = ic.pool.length / 2;
       var j = (i * 7919) % n;
@@ -794,8 +794,10 @@
         spread = Math.sin(Math.PI * local) * 0.13; // в середине пути распыляется
       }
 
-      var px = ax + (bx - ax) * ex + pointer.x * depth * 26;
-      var py = ay + (by - ay) * ey + pointer.y * depth * 26;
+      // параллакс тоже гасится на спокойных сценах: разноглубинный сдвиг
+      // от мыши размазывал бы контуры иконок
+      var px = ax + (bx - ax) * ex + pointer.x * depth * 26 * calm;
+      var py = ay + (by - ay) * ey + pointer.y * depth * 26 * calm;
       if (spread > 0) {
         px += (p.r[4] - 0.5) * spread * ga.u;
         py += (p.r[5] - 0.5) * spread * ga.u * 0.7;
@@ -805,7 +807,8 @@
         py += swirlY * ga.u;
       }
 
-      var size = p.size * (0.7 + depth * 0.45);
+      // на спокойной сцене частицы мельче — меньше вылет за полосу контура
+      var size = p.size * (0.7 + depth * 0.45) * (0.62 + 0.38 * calm);
       // редкие крупные фигуры — только там, где сцена этого просит
       if (mix > 0) size *= 1 + mix * Math.pow(p.r[7], 4) * 6;
       size *= shrink;
