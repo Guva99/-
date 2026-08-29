@@ -121,13 +121,6 @@
     return pool;
   }
 
-  var PUZZLES = {
-    // проблемы: два куска врозь — сверху слева и справа
-    problem: null,
-    // решение: те же куски состыкованы, через них проходит линия связи
-    solution: null
-  };
-
   var SHAPES = {
     // лампочка — инсайт
     bulb: rasterise(function (c) {
@@ -223,49 +216,42 @@
 
   // Кусок пазла: квадрат со скруглением, к нему прибавляются выступы
   // и вычитаются впадины — так форма читается без ручного построения кривых.
-  // Ширина и высота задаются отдельно: сцена растянута во весь экран,
-  // и квадрат в буфере превратился бы на экране в прямоугольник.
-  function puzzlePiece(c, cx, cy, w, hh, tabs) {
-    // Кусок собирается в отдельном буфере: иначе вырез одного куска
-    // стирает уже нарисованный выступ соседнего.
-    var tmp = document.createElement('canvas');
-    tmp.width = c.canvas.width;
-    tmp.height = c.canvas.height;
-    var t = tmp.getContext('2d');
-    t.fillStyle = '#000';
-
-    var hw = w / 2, hy = hh / 2;
-    var r = Math.min(w, hh) * 0.22;
-    t.beginPath();
-    if (t.roundRect) t.roundRect(cx - hw, cy - hy, w, hh, 8);
-    else t.rect(cx - hw, cy - hy, w, hh);
-    t.fill();
-
-    var sides = [[cx, cy - hy, tabs.top], [cx + hw, cy, tabs.right],
-                 [cx, cy + hy, tabs.bottom], [cx - hw, cy, tabs.left]];
-    var i;
-    for (i = 0; i < sides.length; i++) {
-      if (sides[i][2] !== 1) continue;
-      t.beginPath(); t.arc(sides[i][0], sides[i][1], r, 0, Math.PI * 2); t.fill();
+  // Каркасная фигура: внешний треугольник и внутренняя вершина, связанная
+  // с углами — так каркас читается объёмным. Радиусы по осям задаются
+  // раздельно: сцена растянута во весь экран, и круг стал бы эллипсом.
+  function wireShape(c, cx, cy, rx, ry, rot) {
+    var pts = [];
+    for (var k = 0; k < 3; k++) {
+      var a = rot + k * Math.PI * 2 / 3;
+      pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]);
     }
-    t.globalCompositeOperation = 'destination-out';
-    for (i = 0; i < sides.length; i++) {
-      if (sides[i][2] !== -1) continue;
-      t.beginPath(); t.arc(sides[i][0], sides[i][1], r, 0, Math.PI * 2); t.fill();
-    }
+    var ix = cx + Math.cos(rot + 1.1) * rx * 0.38;
+    var iy = cy + Math.sin(rot + 1.1) * ry * 0.38;
 
-    c.drawImage(tmp, 0, 0);
+    c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]);
+    c.lineTo(pts[1][0], pts[1][1]);
+    c.lineTo(pts[2][0], pts[2][1]);
+    c.closePath();
+    for (k = 0; k < 3; k++) {
+      c.moveTo(ix, iy);
+      c.lineTo(pts[k][0], pts[k][1]);
+    }
+    c.stroke();
   }
 
-  // 64 x 102 в буфере даёт на экране квадратный кусок
-  PUZZLES.problem = rasterise(function (c) {
-    puzzlePiece(c, 50, 60, 64, 102, { right: 1, bottom: -1, top: 1 });
-    puzzlePiece(c, 168, 156, 64, 102, { left: -1, top: 1, right: -1 });
-  });
-  PUZZLES.solution = rasterise(function (c) {
-    c.fillRect(0, 106, 220, 5);                       // линия связи через весь экран
-    puzzlePiece(c, 78, 110, 64, 102, { right: 1, top: -1, bottom: 1 });
-    puzzlePiece(c, 142, 110, 64, 102, { left: -1, top: 1, bottom: -1 });
+  // по вертикали сцена ужата, поэтому радиус по Y растягиваем
+  var WIRE_ASPECT = 0.85 / (0.58 * 0.92);
+
+  var CUBES = rasterise(function (c) {
+    c.lineWidth = 2.6;
+    var list = [
+      [116, 42, 21, 0.5], [180, 54, 16, 2.1], [132, 108, 24, 1.3],
+      [198, 120, 18, 0.2], [150, 176, 20, 2.7], [206, 188, 14, 1.6]
+    ];
+    list.forEach(function (w) {
+      wireShape(c, w[0], w[1], w[2], w[2] * WIRE_ASPECT, w[3]);
+    });
   });
 
   function shapeFormation(pool, scale, offsetY) {
@@ -302,16 +288,15 @@
       var j = (i % (brainPoints.length / 2)) | 0;
       return [brainPoints[j * 2] * 0.62, brainPoints[j * 2 + 1] * 0.62];
     },
-    // пазлы разложены во весь экран, поэтому свои масштабы по осям
-    problem: function (p, i) {
-      var n = PUZZLES.problem.length / 2;
+    // шесть каркасов справа и абстрактное распыление вдоль левого края
+    cubes: function (p, i) {
+      if (p.r[6] < 0.4) {
+        var x = -0.95 + Math.pow(p.r[0], 0.55) * 0.85;
+        return [x, (p.r[1] * 2 - 1) * 0.56];
+      }
+      var n = CUBES.length / 2;
       var j = (i * 7919) % n;
-      return [PUZZLES.problem[j * 2] * 0.85, PUZZLES.problem[j * 2 + 1] * 0.58];
-    },
-    solution: function (p, i) {
-      var n = PUZZLES.solution.length / 2;
-      var j = (i * 7919) % n;
-      return [PUZZLES.solution[j * 2] * 0.85, PUZZLES.solution[j * 2 + 1] * 0.58];
+      return [CUBES[j * 2] * 0.85, CUBES[j * 2 + 1] * 0.58];
     },
 
     // плотные абстрактные волны по низу экрана
@@ -345,7 +330,7 @@
   };
 
   // насколько сцена выкручивает непрозрачность — на белом шар иначе тонет
-  var FORM_BOOST = { planet: 1.6, waves: 1.3, problem: 1.7, solution: 1.7 };
+  var FORM_BOOST = { planet: 1.6, waves: 1.3, cubes: 1.5 };
 
   /* --- планета: шар с материками ---
          Контуры материков задаются полигонами в градусах долготы и широты,
