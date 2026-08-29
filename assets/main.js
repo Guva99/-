@@ -20,6 +20,14 @@
   var PICK = [];
   PALETTE.forEach(function (p, i) { for (var k = 0; k < p[1]; k++) PICK.push(i); });
 
+  // подмешивание цвета по сценам: пазлы «проблем» серые, «решения» — оранжевые
+  function paletteIdx(list) {
+    return list.map(function (hex) { return COLORS.indexOf(hex); })
+               .filter(function (i) { return i >= 0; });
+  }
+  var GREY_IDX = paletteIdx(['#BFBFBF', '#7B7B7B', '#4B4B4B']);
+  var ORANGE_IDX = paletteIdx(['#FD622C', '#FC5922', '#C24A22', '#FFDBCE']);
+
   var ALPHA_STEPS = 4;
   var LINE_WIDTHS = [1, 1.6, 2.4];
 
@@ -112,6 +120,13 @@
     }
     return pool;
   }
+
+  var PUZZLES = {
+    // проблемы: два куска врозь — сверху слева и справа
+    problem: null,
+    // решение: те же куски состыкованы, через них проходит линия связи
+    solution: null
+  };
 
   var SHAPES = {
     // лампочка — инсайт
@@ -206,6 +221,53 @@
     })
   };
 
+  // Кусок пазла: квадрат со скруглением, к нему прибавляются выступы
+  // и вычитаются впадины — так форма читается без ручного построения кривых.
+  // Ширина и высота задаются отдельно: сцена растянута во весь экран,
+  // и квадрат в буфере превратился бы на экране в прямоугольник.
+  function puzzlePiece(c, cx, cy, w, hh, tabs) {
+    // Кусок собирается в отдельном буфере: иначе вырез одного куска
+    // стирает уже нарисованный выступ соседнего.
+    var tmp = document.createElement('canvas');
+    tmp.width = c.canvas.width;
+    tmp.height = c.canvas.height;
+    var t = tmp.getContext('2d');
+    t.fillStyle = '#000';
+
+    var hw = w / 2, hy = hh / 2;
+    var r = Math.min(w, hh) * 0.22;
+    t.beginPath();
+    if (t.roundRect) t.roundRect(cx - hw, cy - hy, w, hh, 8);
+    else t.rect(cx - hw, cy - hy, w, hh);
+    t.fill();
+
+    var sides = [[cx, cy - hy, tabs.top], [cx + hw, cy, tabs.right],
+                 [cx, cy + hy, tabs.bottom], [cx - hw, cy, tabs.left]];
+    var i;
+    for (i = 0; i < sides.length; i++) {
+      if (sides[i][2] !== 1) continue;
+      t.beginPath(); t.arc(sides[i][0], sides[i][1], r, 0, Math.PI * 2); t.fill();
+    }
+    t.globalCompositeOperation = 'destination-out';
+    for (i = 0; i < sides.length; i++) {
+      if (sides[i][2] !== -1) continue;
+      t.beginPath(); t.arc(sides[i][0], sides[i][1], r, 0, Math.PI * 2); t.fill();
+    }
+
+    c.drawImage(tmp, 0, 0);
+  }
+
+  // 64 x 102 в буфере даёт на экране квадратный кусок
+  PUZZLES.problem = rasterise(function (c) {
+    puzzlePiece(c, 50, 60, 64, 102, { right: 1, bottom: -1, top: 1 });
+    puzzlePiece(c, 168, 156, 64, 102, { left: -1, top: 1, right: -1 });
+  });
+  PUZZLES.solution = rasterise(function (c) {
+    c.fillRect(0, 106, 220, 5);                       // линия связи через весь экран
+    puzzlePiece(c, 78, 110, 64, 102, { right: 1, top: -1, bottom: 1 });
+    puzzlePiece(c, 142, 110, 64, 102, { left: -1, top: 1, bottom: -1 });
+  });
+
   function shapeFormation(pool, scale, offsetY) {
     var pairs = pool.length / 2;
     return function (p, i) {
@@ -240,6 +302,18 @@
       var j = (i % (brainPoints.length / 2)) | 0;
       return [brainPoints[j * 2] * 0.62, brainPoints[j * 2 + 1] * 0.62];
     },
+    // пазлы разложены во весь экран, поэтому свои масштабы по осям
+    problem: function (p, i) {
+      var n = PUZZLES.problem.length / 2;
+      var j = (i * 7919) % n;
+      return [PUZZLES.problem[j * 2] * 0.85, PUZZLES.problem[j * 2 + 1] * 0.58];
+    },
+    solution: function (p, i) {
+      var n = PUZZLES.solution.length / 2;
+      var j = (i * 7919) % n;
+      return [PUZZLES.solution[j * 2] * 0.85, PUZZLES.solution[j * 2 + 1] * 0.58];
+    },
+
     // плотные абстрактные волны по низу экрана
     waves: function (p) {
       var x = -0.98 + p.r[0] * 1.96;
@@ -271,7 +345,7 @@
   };
 
   // насколько сцена выкручивает непрозрачность — на белом шар иначе тонет
-  var FORM_BOOST = { planet: 1.6, waves: 1.3 };
+  var FORM_BOOST = { planet: 1.6, waves: 1.3, problem: 1.7, solution: 1.7 };
 
   /* --- планета: шар с материками ---
          Контуры материков задаются полигонами в градусах долготы и широты,
@@ -518,9 +592,11 @@
         boost: FORM_BOOST[name] || 1,
         // на сцене с этим флагом калибр разбавлен крупными треугольниками
         mixed: el.dataset.size === 'mixed',
+        tint: el.dataset.tint || null,
         scale: scale
       };
       stage.fall = el.dataset.enter === 'fall';
+      stage.tornado = el.dataset.enter === 'tornado';
       if (name === 'planet') {
         var planet = buildPlanetStage();
         stage.pts = planet.pts;
@@ -623,6 +699,8 @@
     var va = span.a.vis;
     var vb = span.b.vis;
     var falling = span.b.fall && span.b !== span.a;
+    var swirling = span.b.tornado && span.b !== span.a;
+    var tint = (e < 0.5 ? span.a.tint : span.b.tint);
     var i;
 
     // живые сцены (планета) доворачиваются вместе со скроллом
@@ -645,7 +723,18 @@
 
       // при входе в «волны» частицы осыпаются: у каждой своя задержка,
       // по вертикали движение с ускорением, как при падении
-      var ex = e, ey = e, spread = 0;
+      var ex = e, ey = e, spread = 0, swirlX = 0, swirlY = 0, shrink = 1;
+      if (swirling) {
+        var sDelay = p.r[6] * 0.4;
+        var sLocal = Math.max(0, Math.min(1, (e - sDelay) / (1 - sDelay)));
+        ex = ey = sLocal;
+        var wave = Math.sin(Math.PI * sLocal);          // 0 → 1 → 0
+        var ang = p.r[4] * Math.PI * 2 + sLocal * 7;    // закрутка
+        var rad = wave * (0.12 + p.r[5] * 0.55);
+        swirlX = Math.cos(ang) * rad;
+        swirlY = Math.sin(ang) * rad * 0.55 - wave * 0.16;
+        shrink = 1 - wave * 0.6;                        // распыляется в мелкую пыль
+      }
       if (falling) {
         var delay = p.r[6] * 0.45;
         var local = Math.max(0, Math.min(1, (e - delay) / (1 - delay)));
@@ -660,10 +749,15 @@
         px += (p.r[4] - 0.5) * spread * ga.u;
         py += (p.r[5] - 0.5) * spread * ga.u * 0.7;
       }
+      if (swirling) {
+        px += swirlX * ga.u;
+        py += swirlY * ga.u;
+      }
 
       var size = p.size * (0.7 + depth * 0.45);
       // редкие крупные фигуры — только там, где сцена этого просит
       if (mix > 0) size *= 1 + mix * Math.pow(p.r[7], 4) * 6;
+      size *= shrink;
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // самые крупные держим чуть бледнее — они читаются как ближние
@@ -681,7 +775,18 @@
 
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
       var lwStep = size > 3.9 ? 2 : (size > 2.6 ? 1 : 0);
-      var bucket = (p.color * ALPHA_STEPS + aStep) * LINE_WIDTHS.length + lwStep;
+      var colorIdx = p.color;
+      if (tint === 'grey') {
+        colorIdx = GREY_IDX[p.color % GREY_IDX.length];
+      } else if (tint === 'split') {
+        // левый кусок серый, правый оранжевый — они и стыкуются
+        var tx = e < 0.5 ? pa[i * 2] : pb[i * 2];
+        colorIdx = tx < 0
+          ? GREY_IDX[p.color % GREY_IDX.length]
+          : ORANGE_IDX[p.color % ORANGE_IDX.length];
+      }
+
+      var bucket = (colorIdx * ALPHA_STEPS + aStep) * LINE_WIDTHS.length + lwStep;
 
       buckets[bucket].push(px, py, size * 0.5, p.rot + t * p.spin);
     }
