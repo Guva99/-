@@ -234,7 +234,29 @@
       var j = (i % (brainPoints.length / 2)) | 0;
       return [brainPoints[j * 2] * 0.62, brainPoints[j * 2 + 1] * 0.62];
     },
-    chart: shapeFormation(SHAPES.chart, 0.66),
+    // плотные абстрактные волны по низу экрана
+    waves: function (p) {
+      var x = -0.98 + p.r[0] * 1.96;
+      // сумма гармоник — узор не повторяется по ширине экрана
+      function crest(k) {
+        return 0.15 + k * 0.075
+          + 0.125 * Math.sin(x * 2.7 + k * 0.8 + 0.4)
+          + 0.065 * Math.sin(x * 5.5 + k * 1.7 + 1.7)
+          + 0.032 * Math.sin(x * 10.5 + k * 2.3 + 2.9)
+          + 0.016 * Math.sin(x * 19.0 + 1.1);
+      }
+      if (p.r[6] < 0.1) {
+        // редкая взвесь над гребнем — след от осыпания
+        return [x, crest(0) - Math.pow(p.r[1], 2.4) * 0.4];
+      }
+      if (p.r[6] < 0.8) {
+        var top = crest(0);
+        // низ упирается в край экрана: ниже частицы просто отсекались бы
+        return [x, top + Math.pow(p.r[1], 1.9) * (0.6 - top)];
+      }
+      var band = 1 + ((p.r[7] * 4) | 0);
+      return [x, crest(band) + (p.r[1] - 0.5) * 0.022];
+    },
     sparse: function (p) {
       return [(p.r[0] * 2 - 1) * 1.55, (p.r[1] * 2 - 1) * 1.4];
     },
@@ -242,13 +264,8 @@
     envelope: shapeFormation(SHAPES.envelope, 0.62)
   };
 
-  var FORM_SIZE = { brain: 0.2, bulb: 0.2, planet: 0.22, chart: 0.2, bubble: 0.2, envelope: 0.2 };
-  // насколько фигура выкручивает непрозрачность — на белом сфера иначе тонет
-  var FORM_BOOST = { planet: 1.8 };
-  // у планеты точки держим примерно одного калибра: мелкая «пыль» уходит
-  // в доли пикселя, а редкие гиганты зашумляют материки
-  var FORM_FLOOR = { planet: 3.4 };
-  var FORM_CEIL = { planet: 8 };
+  // насколько сцена выкручивает непрозрачность — на белом шар иначе тонет
+  var FORM_BOOST = { planet: 1.6, waves: 1.3 };
 
   /* --- планета: шар с материками ---
          Контуры материков задаются полигонами в градусах долготы и широты,
@@ -327,14 +344,14 @@
 
   var PLANET = (function () {
     var RADIUS = 0.62;
-    var TILT = 0.48;           // смотрим сверху, ближе к северному полюсу
+    var TILT = 0.48;                // смотрим сверху, ближе к северному полюсу
     var SPIN = 45 * Math.PI / 180;  // к зрителю повёрнута долгота 45° в.д.
     var SAMPLES = 90000;
     var golden = Math.PI * (3 - Math.sqrt(5));
 
     var ca = Math.cos(SPIN), sa = Math.sin(SPIN);
     var ct = Math.cos(TILT), st = Math.sin(TILT);
-    var front = [];
+    var land = [];
 
     for (var i = 0; i < SAMPLES; i++) {
       var y = 1 - (i / (SAMPLES - 1)) * 2;
@@ -347,31 +364,101 @@
       var lon = Math.atan2(z, x) * 180 / Math.PI;
       if (!landMask(lat, lon)) continue;
 
-      var x1 = x * ca - z * sa;
       var z1 = x * sa + z * ca;
-      var y2 = y * ct - z1 * st;
       var z2 = y * st + z1 * ct;
-      if (z2 < 0.05) continue;                 // только видимая сторона
+      if (z2 < -0.2) continue;   // с запасом на подкрутку при скролле
 
-      // Ортографическая проекция без перспективы: только так силуэт шара
-      // остаётся ровной окружностью и совпадает с кольцом лимба.
-      // Ось X: долгота растёт вправо; ось Y экрана смотрит вниз, север в минус.
-      front.push(-x1 * RADIUS, -y2 * RADIUS);
+      land.push(x, y, z);
     }
 
-    return { pts: front, radius: RADIUS, count: front.length / 2 };
+    return { land: land, radius: RADIUS, tilt: TILT, spin: SPIN };
   })();
 
-  // 12% частиц держат лимб, остальные ложатся на видимую сушу
-  function planetFormation(p, i) {
+  /* Планета — динамическая сцена: 15% частиц держат лимб, остальные лежат
+     на суше и подкручиваются вместе со скроллом. Ортографическая проекция,
+     без неё силуэт перестаёт быть ровной окружностью. */
+  function buildPlanetStage() {
     var ringCount = Math.round(COUNT * 0.15);
-    if (i < ringCount) {
-      var a = (i / ringCount) * Math.PI * 2;
-      return [Math.cos(a) * PLANET.radius, Math.sin(a) * PLANET.radius];
+    var n = PLANET.land.length / 3;
+    var ct = Math.cos(PLANET.tilt), st = Math.sin(PLANET.tilt);
+    var ca = Math.cos(PLANET.spin), sa = Math.sin(PLANET.spin);
+    var entries = [];
+    var i;
+
+    for (i = 0; i < COUNT; i++) {
+      if (i < ringCount) {
+        var a = (i / ringCount) * Math.PI * 2;
+        entries.push({
+          ring: true, ang: a,
+          bx: Math.cos(a) * PLANET.radius,
+          by: Math.sin(a) * PLANET.radius
+        });
+      } else {
+        var j = ((i - ringCount) * 7919) % n;
+        var x = PLANET.land[j * 3], y = PLANET.land[j * 3 + 1], z = PLANET.land[j * 3 + 2];
+        var x1 = x * ca - z * sa;
+        var z1 = x * sa + z * ca;
+        var y2 = y * ct - z1 * st;
+        entries.push({
+          ring: false, x: x, y: y, z: z,
+          bx: -x1 * PLANET.radius, by: -y2 * PLANET.radius
+        });
+      }
     }
-    var n = PLANET.pts.length / 2;
-    var j = ((i - ringCount) * 7919) % n;
-    return [PLANET.pts[j * 2], PLANET.pts[j * 2 + 1]];
+
+    // порядок по углу — как у статичных фигур, чтобы перетекание было связным
+    var sx = 0, sy = 0;
+    entries.forEach(function (e) { sx += e.bx; sy += e.by; });
+    var cx = sx / COUNT, cy = sy / COUNT;
+    entries.forEach(function (e) { e.key = Math.atan2(e.by - cy, e.bx - cx); });
+    entries.sort(function (a, b) { return a.key - b.key; });
+
+    var p3 = new Float32Array(COUNT * 3);
+    var isRing = new Uint8Array(COUNT);
+    var ringAng = new Float32Array(COUNT);
+    for (i = 0; i < COUNT; i++) {
+      if (entries[i].ring) {
+        isRing[i] = 1;
+        ringAng[i] = entries[i].ang;
+      } else {
+        p3[i * 3] = entries[i].x;
+        p3[i * 3 + 1] = entries[i].y;
+        p3[i * 3 + 2] = entries[i].z;
+      }
+    }
+
+    var pts = new Float32Array(COUNT * 2);
+    var vis = new Float32Array(COUNT);
+
+    function update(k) {
+      var spin = PLANET.spin + k * 0.75;  // шар доворачивается вместе со скроллом
+      var sc = Math.cos(spin), ss = Math.sin(spin);
+      var tc = Math.cos(PLANET.tilt), ts = Math.sin(PLANET.tilt);
+
+      for (var i = 0; i < COUNT; i++) {
+        if (isRing[i]) {
+          pts[i * 2] = Math.cos(ringAng[i]) * PLANET.radius;
+          pts[i * 2 + 1] = Math.sin(ringAng[i]) * PLANET.radius;
+          vis[i] = 1;
+          continue;
+        }
+        var x = p3[i * 3], y = p3[i * 3 + 1], z = p3[i * 3 + 2];
+        var x1 = x * sc - z * ss;
+        var z1 = x * ss + z * sc;
+        var y2 = y * tc - z1 * ts;
+        var z2 = y * ts + z1 * tc;
+
+        pts[i * 2] = -x1 * PLANET.radius;
+        pts[i * 2 + 1] = -y2 * PLANET.radius;
+
+        // точки, ушедшие за край, гаснут
+        var f = Math.max(0, Math.min(1, (z2 + 0.02) / 0.22));
+        vis[i] = f * f * (3 - 2 * f);
+      }
+    }
+
+    update(0);
+    return { pts: pts, vis: vis, update: update };
   }
 
   /* --- сцены: каждая секция — одна фигура ---
@@ -422,17 +509,21 @@
       var stage = {
         el: el,
         slot: el.querySelector('.figure-slot'),
-        // треугольники растут вместе с фигурой, иначе контур редеет
-        size: (FORM_SIZE[name] || 1) * scale,
         boost: FORM_BOOST[name] || 1,
-        floor: (FORM_FLOOR[name] || 0) * scale,
-        ceil: (FORM_CEIL[name] || 0) * scale,
         scale: scale
       };
-      stage.pts = buildTargets(
-        name === 'planet' ? planetFormation : (FORMATIONS[name] || FORMATIONS.scatter),
-        (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
-      );
+      stage.fall = el.dataset.enter === 'fall';
+      if (name === 'planet') {
+        var planet = buildPlanetStage();
+        stage.pts = planet.pts;
+        stage.vis = planet.vis;
+        stage.update = planet.update;
+      } else {
+        stage.pts = buildTargets(
+          FORMATIONS[name] || FORMATIONS.scatter,
+          (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
+        );
+      }
       return stage;
     });
   if (!STAGES.length) return;
@@ -491,6 +582,12 @@
     return { a: a, b: b, t: t };
   }
 
+  // насколько центр сцены ушёл от центра экрана, в долях высоты вьюпорта
+  function stageShift(stage) {
+    var r = stage.el.getBoundingClientRect();
+    return (height / 2 - (r.top + r.height / 2)) / height;
+  }
+
   // фигура держится, пока экран близко к центру, и перетекает в средней трети пути
   function ease(t) {
     var e = Math.max(0, Math.min(1, (t - 0.18) / 0.64));
@@ -509,13 +606,17 @@
     var e = ease(span.t);
     var ga = geometry(span.a);
     var gb = geometry(span.b);
-    var sizeScale = span.a.size + (span.b.size - span.a.size) * e;
     var boost = span.a.boost + (span.b.boost - span.a.boost) * e;
-    var floor = span.a.floor + (span.b.floor - span.a.floor) * e;
-    var ceil = span.a.ceil + (span.b.ceil - span.a.ceil) * e;
     var pa = span.a.pts;
     var pb = span.b.pts;
+    var va = span.a.vis;
+    var vb = span.b.vis;
+    var falling = span.b.fall && span.b !== span.a;
     var i;
+
+    // живые сцены (планета) доворачиваются вместе со скроллом
+    if (span.a.update) span.a.update(stageShift(span.a));
+    if (span.b.update && span.b !== span.a) span.b.update(stageShift(span.b));
 
 
     for (i = 0; i < buckets.length; i++) buckets[i].length = 0;
@@ -531,19 +632,38 @@
       var bx = gb.cx + (pb[i * 2] + driftX) * gb.u;
       var by = gb.cy + (pb[i * 2 + 1] + driftY) * gb.u * gb.ys;
 
-      var px = ax + (bx - ax) * e + pointer.x * depth * 26;
-      var py = ay + (by - ay) * e + pointer.y * depth * 26;
+      // при входе в «волны» частицы осыпаются: у каждой своя задержка,
+      // по вертикали движение с ускорением, как при падении
+      var ex = e, ey = e, spread = 0;
+      if (falling) {
+        var delay = p.r[6] * 0.45;
+        var local = Math.max(0, Math.min(1, (e - delay) / (1 - delay)));
+        ex = local;
+        ey = local * local;                       // вниз с ускорением
+        spread = Math.sin(Math.PI * local) * 0.13; // в середине пути распыляется
+      }
 
-      var size = p.size * (0.55 + depth * 0.7) * sizeScale;
-      if (floor > size) size = floor;
-      if (ceil > 0 && size > ceil) size = ceil;
+      var px = ax + (bx - ax) * ex + pointer.x * depth * 26;
+      var py = ay + (by - ay) * ey + pointer.y * depth * 26;
+      if (spread > 0) {
+        px += (p.r[4] - 0.5) * spread * ga.u;
+        py += (p.r[5] - 0.5) * spread * ga.u * 0.7;
+      }
+
+      var size = p.size * (0.7 + depth * 0.45);
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
-      // крупные фигуры читаются как ближние и расфокусированные — держим их бледными
-      var big = Math.min(1, p.size / 34);
+      // самые крупные держим чуть бледнее — они читаются как ближние
+      var big = Math.min(1, (p.size - 2) / 5.5);
       var twinkle = 0.66 + 0.34 * Math.sin(t * 1.15 + p.phase * 2);
       var alpha = (1 - big * 0.62) * (0.55 + depth * 0.45) * twinkle;
 
+      // у живых сцен своя видимость — точки, ушедшие за край шара, гаснут
+      if (va || vb) {
+        var v1 = va ? va[i] : 1;
+        var v2 = vb ? vb[i] : 1;
+        alpha *= v1 + (v2 - v1) * e;
+      }
       alpha = Math.min(1, alpha * boost);
 
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
