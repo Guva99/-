@@ -214,13 +214,13 @@
   // Рисуются штрихом в буфере 220x220; на экране занимают ~120px.
   function iconStroke(paint) {
     return rasterise(function (c) {
-      c.lineWidth = 9;
+      c.lineWidth = 6;
       paint(c);
     });
   }
 
   var ICONS = [
-    { hex: '#8052FF', px: -0.55, py: -0.34, s: 0.13, pool: iconStroke(function (c) {
+    { hex: '#8052FF', px: -0.62, py: -0.42, s: 0.15, pool: iconStroke(function (c) {
       // ИИ — четырёхлучевая искра и малая рядом
       c.beginPath();
       c.moveTo(104, 32);
@@ -239,7 +239,7 @@
       c.closePath();
       c.stroke();
     }) },
-    { hex: '#FD622C', px: -0.70, py: 0.16, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#FD622C', px: -0.62, py: 0.0, s: 0.15, pool: iconStroke(function (c) {
       // чат — облако реплики с хвостом
       c.beginPath();
       if (c.roundRect) c.roundRect(36, 52, 148, 96, 20); else c.rect(36, 52, 148, 96);
@@ -248,7 +248,7 @@
       c.moveTo(80, 148); c.lineTo(64, 186); c.lineTo(114, 148);
       c.stroke();
     }) },
-    { hex: '#22A06B', px: -0.32, py: 0.44, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#22A06B', px: -0.62, py: 0.42, s: 0.15, pool: iconStroke(function (c) {
       // доставка — объёмная коробка
       c.beginPath();
       c.moveTo(110, 34); c.lineTo(176, 68); c.lineTo(176, 140);
@@ -261,7 +261,7 @@
       c.moveTo(110, 102); c.lineTo(110, 174);
       c.stroke();
     }) },
-    { hex: '#E5484D', px: -0.04, py: -0.08, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#E5484D', px: 0.62, py: -0.42, s: 0.15, pool: iconStroke(function (c) {
       // конструктор сайта — окно браузера с блоком
       c.beginPath();
       if (c.roundRect) c.roundRect(30, 48, 160, 112, 10); else c.rect(30, 48, 160, 112);
@@ -277,7 +277,7 @@
       c.moveTo(116, 132); c.lineTo(158, 132);
       c.stroke();
     }) },
-    { hex: '#3B82F6', px: 0.36, py: 0.30, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#3B82F6', px: 0.62, py: 0.0, s: 0.15, pool: iconStroke(function (c) {
       // CRM — контакт: голова и плечи
       c.beginPath(); c.arc(110, 76, 30, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -285,7 +285,7 @@
       c.bezierCurveTo(54, 122, 166, 122, 166, 170);
       c.stroke();
     }) },
-    { hex: '#FF5FA2', px: 0.62, py: -0.30, s: 0.12, pool: iconStroke(function (c) {
+    { hex: '#FF5FA2', px: 0.62, py: 0.42, s: 0.15, pool: iconStroke(function (c) {
       // таймер — циферблат со стрелками и кнопкой
       c.beginPath(); c.arc(110, 124, 56, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -386,7 +386,7 @@
   };
 
   // насколько сцена выкручивает непрозрачность — на белом шар иначе тонет
-  var FORM_BOOST = { planet: 1.6, waves: 1.3, cubes: 1.5 };
+  var FORM_BOOST = { planet: 1.6, waves: 1.3, cubes: 1.9 };
 
   /* --- планета: шар с материками ---
          Контуры материков задаются полигонами в градусах долготы и широты,
