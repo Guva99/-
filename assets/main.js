@@ -133,7 +133,7 @@
       c.save();
       c.translate(110, 90);
       c.rotate(30 * Math.PI / 180);
-      c.font = '700 58px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      c.font = '700 44px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.lineWidth = 3;
@@ -516,6 +516,8 @@
         el: el,
         slot: el.querySelector('.figure-slot'),
         boost: FORM_BOOST[name] || 1,
+        // на сцене с этим флагом калибр разбавлен крупными треугольниками
+        mixed: el.dataset.size === 'mixed',
         scale: scale
       };
       stage.fall = el.dataset.enter === 'fall';
@@ -613,6 +615,9 @@
     var ga = geometry(span.a);
     var gb = geometry(span.b);
     var boost = span.a.boost + (span.b.boost - span.a.boost) * e;
+    var mixA = span.a.mixed ? 1 : 0;
+    var mixB = span.b.mixed ? 1 : 0;
+    var mix = mixA + (mixB - mixA) * e;
     var pa = span.a.pts;
     var pb = span.b.pts;
     var va = span.a.vis;
@@ -657,6 +662,8 @@
       }
 
       var size = p.size * (0.7 + depth * 0.45);
+      // редкие крупные фигуры — только там, где сцена этого просит
+      if (mix > 0) size *= 1 + mix * Math.pow(p.r[7], 4) * 6;
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // самые крупные держим чуть бледнее — они читаются как ближние
