@@ -41,8 +41,8 @@
     var r = [rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand()];
     particles.push({
       r: r,
-      // мелкая «пыль» и редкие крупные ближние фигуры
-      size: 1.5 + Math.pow(r[2], 5.6) * 70,
+      // единый калибр: размер не меняется от сцены к сцене
+      size: 1.4 + Math.pow(r[2], 2.2) * 4,
       z: r[3],
       color: PICK[(r[4] * PICK.length) | 0],
       rot: r[5] * Math.PI * 2,
@@ -128,11 +128,17 @@
       c.moveTo(90, 168); c.lineTo(130, 168);
       c.moveTo(98, 180); c.lineTo(122, 180);
       c.stroke();
-      // нить накаливания
-      c.lineWidth = 4;
-      c.beginPath();
-      c.moveTo(94, 96); c.lineTo(104, 78); c.lineTo(114, 96); c.lineTo(124, 78);
-      c.stroke();
+      // надпись UP внутри колбы — контуром, залитые буквы сливаются в пятно
+      // предповорот на +30° гасит наклон самой фигуры, надпись стоит прямо
+      c.save();
+      c.translate(110, 90);
+      c.rotate(30 * Math.PI / 180);
+      c.font = '700 58px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.lineWidth = 3;
+      c.strokeText('UP', 0, 0);
+      c.restore();
       // лучи
       c.lineWidth = 5;
       for (var i = 0; i < 8; i++) {
@@ -654,7 +660,7 @@
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // самые крупные держим чуть бледнее — они читаются как ближние
-      var big = Math.min(1, (p.size - 1.7) / 4.68);
+      var big = Math.min(1, (p.size - 1.4) / 4);
       var twinkle = 0.66 + 0.34 * Math.sin(t * 1.15 + p.phase * 2);
       var alpha = (1 - big * 0.62) * (0.55 + depth * 0.45) * twinkle;
 
@@ -667,7 +673,7 @@
       alpha = Math.min(1, alpha * boost);
 
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
-      var lwStep = size > 26 ? 2 : (size > 11 ? 1 : 0);
+      var lwStep = size > 4.6 ? 2 : (size > 3 ? 1 : 0);
       var bucket = (p.color * ALPHA_STEPS + aStep) * LINE_WIDTHS.length + lwStep;
 
       buckets[bucket].push(px, py, size * 0.5, p.rot + t * p.spin);
