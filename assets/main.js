@@ -118,7 +118,7 @@
   var SHAPES = {
     // лампочка — инсайт
     bulb: rasterise(function (c) {
-      c.lineWidth = 6;
+      c.lineWidth = 4.5;
       c.beginPath(); c.arc(110, 88, 46, 0, Math.PI * 2); c.stroke();
       c.beginPath();
       c.moveTo(88, 130); c.lineTo(88, 150);
@@ -220,7 +220,7 @@
   }
 
   var ICONS = [
-    { hex: '#8052FF', px: -0.62, py: -0.42, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#8052FF', px: -0.62, py: -0.33, s: 0.12, pool: iconStroke(function (c) {
       // ИИ — четырёхлучевая искра и малая рядом
       c.beginPath();
       c.moveTo(104, 32);
@@ -239,7 +239,7 @@
       c.closePath();
       c.stroke();
     }) },
-    { hex: '#FD622C', px: -0.62, py: 0.0, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#FD622C', px: -0.62, py: 0.0, s: 0.12, pool: iconStroke(function (c) {
       // чат — облако реплики с хвостом
       c.beginPath();
       if (c.roundRect) c.roundRect(36, 52, 148, 96, 20); else c.rect(36, 52, 148, 96);
@@ -248,7 +248,7 @@
       c.moveTo(80, 148); c.lineTo(64, 186); c.lineTo(114, 148);
       c.stroke();
     }) },
-    { hex: '#22A06B', px: -0.62, py: 0.42, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#22A06B', px: -0.62, py: 0.33, s: 0.12, pool: iconStroke(function (c) {
       // доставка — объёмная коробка
       c.beginPath();
       c.moveTo(110, 34); c.lineTo(176, 68); c.lineTo(176, 140);
@@ -261,7 +261,7 @@
       c.moveTo(110, 102); c.lineTo(110, 174);
       c.stroke();
     }) },
-    { hex: '#E5484D', px: 0.62, py: -0.42, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#E5484D', px: 0.62, py: -0.33, s: 0.12, pool: iconStroke(function (c) {
       // конструктор сайта — окно браузера с блоком
       c.beginPath();
       if (c.roundRect) c.roundRect(30, 48, 160, 112, 10); else c.rect(30, 48, 160, 112);
@@ -277,7 +277,7 @@
       c.moveTo(116, 132); c.lineTo(158, 132);
       c.stroke();
     }) },
-    { hex: '#3B82F6', px: 0.62, py: 0.0, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#3B82F6', px: 0.62, py: 0.0, s: 0.12, pool: iconStroke(function (c) {
       // CRM — контакт: голова и плечи
       c.beginPath(); c.arc(110, 76, 30, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -285,7 +285,7 @@
       c.bezierCurveTo(54, 122, 166, 122, 166, 170);
       c.stroke();
     }) },
-    { hex: '#FF5FA2', px: 0.62, py: 0.42, s: 0.15, pool: iconStroke(function (c) {
+    { hex: '#FF5FA2', px: 0.62, py: 0.33, s: 0.12, pool: iconStroke(function (c) {
       // таймер — циферблат со стрелками и кнопкой
       c.beginPath(); c.arc(110, 124, 56, 0, Math.PI * 2); c.stroke();
       c.beginPath();
@@ -387,6 +387,8 @@
 
   // насколько сцена выкручивает непрозрачность — на белом шар иначе тонет
   var FORM_BOOST = { planet: 1.6, waves: 1.3, cubes: 1.9 };
+  // множитель дрейфа: 1 — обычное дыхание поля, меньше — резче контуры
+  var FORM_CALM = { cubes: 0.3, planet: 0.6 };
 
   /* --- планета: шар с материками ---
          Контуры материков задаются полигонами в градусах долготы и широты,
@@ -636,6 +638,7 @@
         el: el,
         slot: el.querySelector('.figure-slot'),
         boost: FORM_BOOST[name] || 1,
+        calm: FORM_CALM[name] || 1,
         // на сцене с этим флагом калибр разбавлен крупными треугольниками
         mixed: el.dataset.size === 'mixed',
         scale: scale
@@ -738,6 +741,7 @@
     var ga = geometry(span.a);
     var gb = geometry(span.b);
     var boost = span.a.boost + (span.b.boost - span.a.boost) * e;
+    var calm = span.a.calm + (span.b.calm - span.a.calm) * e;
     var mixA = span.a.mixed ? 1 : 0;
     var mixB = span.b.mixed ? 1 : 0;
     var mix = mixA + (mixB - mixA) * e;
@@ -760,8 +764,8 @@
     for (i = 0; i < particles.length; i++) {
       var p = particles[i];
       var depth = 0.35 + p.z * 0.65;
-      var driftX = Math.sin(t * p.speed + p.phase) * 0.0075;
-      var driftY = Math.cos(t * p.speed * 0.85 + p.phase) * 0.0075;
+      var driftX = Math.sin(t * p.speed + p.phase) * 0.0075 * calm;
+      var driftY = Math.cos(t * p.speed * 0.85 + p.phase) * 0.0075 * calm;
 
       var ax = ga.cx + (pa[i * 2] + driftX) * ga.u;
       var ay = ga.cy + (pa[i * 2 + 1] + driftY) * ga.u * ga.ys;
