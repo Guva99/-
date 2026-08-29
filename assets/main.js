@@ -14,19 +14,13 @@
   // оранжевые акценты и средние серые
   var PALETTE = [
     ['#FD622C', 26], ['#FC5922', 16], ['#C24A22', 12], ['#FFDBCE', 10],
-    ['#BFBFBF', 14], ['#7B7B7B', 12], ['#4B4B4B', 10]
+    ['#BFBFBF', 14], ['#7B7B7B', 12], ['#4B4B4B', 10],
+    // цвета иконок: вес 0 — в общее поле не подмешиваются
+    ['#8052FF', 0], ['#22A06B', 0], ['#E5484D', 0], ['#3B82F6', 0], ['#FF5FA2', 0]
   ];
   var COLORS = PALETTE.map(function (p) { return p[0]; });
   var PICK = [];
   PALETTE.forEach(function (p, i) { for (var k = 0; k < p[1]; k++) PICK.push(i); });
-
-  // подмешивание цвета по сценам: пазлы «проблем» серые, «решения» — оранжевые
-  function paletteIdx(list) {
-    return list.map(function (hex) { return COLORS.indexOf(hex); })
-               .filter(function (i) { return i >= 0; });
-  }
-  var GREY_IDX = paletteIdx(['#BFBFBF', '#7B7B7B', '#4B4B4B']);
-  var ORANGE_IDX = paletteIdx(['#FD622C', '#FC5922', '#C24A22', '#FFDBCE']);
 
   var ALPHA_STEPS = 4;
   var LINE_WIDTHS = [1, 1.6, 2.4];
@@ -216,44 +210,102 @@
 
   // Кусок пазла: квадрат со скруглением, к нему прибавляются выступы
   // и вычитаются впадины — так форма читается без ручного построения кривых.
-  // Каркасная фигура: внешний треугольник и внутренняя вершина, связанная
-  // с углами — так каркас читается объёмным. Радиусы по осям задаются
-  // раздельно: сцена растянута во весь экран, и круг стал бы эллипсом.
-  function wireShape(c, cx, cy, rx, ry, rot) {
-    var pts = [];
-    for (var k = 0; k < 3; k++) {
-      var a = rot + k * Math.PI * 2 / 3;
-      pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]);
-    }
-    var ix = cx + Math.cos(rot + 1.1) * rx * 0.38;
-    var iy = cy + Math.sin(rot + 1.1) * ry * 0.38;
-
-    c.beginPath();
-    c.moveTo(pts[0][0], pts[0][1]);
-    c.lineTo(pts[1][0], pts[1][1]);
-    c.lineTo(pts[2][0], pts[2][1]);
-    c.closePath();
-    for (k = 0; k < 3; k++) {
-      c.moveTo(ix, iy);
-      c.lineTo(pts[k][0], pts[k][1]);
-    }
-    c.stroke();
+  /* --- иконки сервисов: каждая своим цветом --- */
+  // Рисуются штрихом в буфере 220x220; на экране занимают ~120px.
+  function iconStroke(paint) {
+    return rasterise(function (c) {
+      c.lineWidth = 9;
+      paint(c);
+    });
   }
 
-  // по вертикали сцена ужата, поэтому радиус по Y растягиваем
-  var WIRE_ASPECT = 0.85 / (0.58 * 0.92);
+  var ICONS = [
+    { hex: '#8052FF', px: -0.55, py: -0.34, s: 0.13, pool: iconStroke(function (c) {
+      // ИИ — четырёхлучевая искра и малая рядом
+      c.beginPath();
+      c.moveTo(104, 32);
+      c.quadraticCurveTo(114, 96, 176, 106);
+      c.quadraticCurveTo(114, 116, 104, 180);
+      c.quadraticCurveTo(94, 116, 32, 106);
+      c.quadraticCurveTo(94, 96, 104, 32);
+      c.closePath();
+      c.stroke();
+      c.beginPath();
+      c.moveTo(178, 128);
+      c.quadraticCurveTo(182, 150, 204, 154);
+      c.quadraticCurveTo(182, 158, 178, 180);
+      c.quadraticCurveTo(174, 158, 152, 154);
+      c.quadraticCurveTo(174, 150, 178, 128);
+      c.closePath();
+      c.stroke();
+    }) },
+    { hex: '#FD622C', px: -0.70, py: 0.16, s: 0.12, pool: iconStroke(function (c) {
+      // чат — облако реплики с хвостом
+      c.beginPath();
+      if (c.roundRect) c.roundRect(36, 52, 148, 96, 20); else c.rect(36, 52, 148, 96);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(80, 148); c.lineTo(64, 186); c.lineTo(114, 148);
+      c.stroke();
+    }) },
+    { hex: '#22A06B', px: -0.32, py: 0.44, s: 0.12, pool: iconStroke(function (c) {
+      // доставка — объёмная коробка
+      c.beginPath();
+      c.moveTo(110, 34); c.lineTo(176, 68); c.lineTo(176, 140);
+      c.lineTo(110, 174); c.lineTo(44, 140); c.lineTo(44, 68);
+      c.closePath();
+      c.stroke();
+      c.beginPath();
+      c.moveTo(44, 68); c.lineTo(110, 102);
+      c.moveTo(176, 68); c.lineTo(110, 102);
+      c.moveTo(110, 102); c.lineTo(110, 174);
+      c.stroke();
+    }) },
+    { hex: '#E5484D', px: -0.04, py: -0.08, s: 0.12, pool: iconStroke(function (c) {
+      // конструктор сайта — окно браузера с блоком
+      c.beginPath();
+      if (c.roundRect) c.roundRect(30, 48, 160, 112, 10); else c.rect(30, 48, 160, 112);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(30, 80); c.lineTo(190, 80);
+      c.stroke();
+      c.beginPath();
+      if (c.roundRect) c.roundRect(48, 96, 52, 48, 6); else c.rect(48, 96, 52, 48);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(116, 108); c.lineTo(174, 108);
+      c.moveTo(116, 132); c.lineTo(158, 132);
+      c.stroke();
+    }) },
+    { hex: '#3B82F6', px: 0.36, py: 0.30, s: 0.12, pool: iconStroke(function (c) {
+      // CRM — контакт: голова и плечи
+      c.beginPath(); c.arc(110, 76, 30, 0, Math.PI * 2); c.stroke();
+      c.beginPath();
+      c.moveTo(54, 170);
+      c.bezierCurveTo(54, 122, 166, 122, 166, 170);
+      c.stroke();
+    }) },
+    { hex: '#FF5FA2', px: 0.62, py: -0.30, s: 0.12, pool: iconStroke(function (c) {
+      // таймер — циферблат со стрелками и кнопкой
+      c.beginPath(); c.arc(110, 124, 56, 0, Math.PI * 2); c.stroke();
+      c.beginPath();
+      c.moveTo(110, 124); c.lineTo(110, 88);
+      c.moveTo(110, 124); c.lineTo(138, 134);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(92, 44); c.lineTo(128, 44);
+      c.moveTo(110, 44); c.lineTo(110, 62);
+      c.stroke();
+    }) }
+  ];
+  ICONS.forEach(function (ic) { ic.color = COLORS.indexOf(ic.hex); });
 
-  // мелкие акцентные каркасы, рассыпанные по всей сцене поверх распыления
-  var CUBES = rasterise(function (c) {
-    c.lineWidth = 2;
-    var list = [
-      [36, 58, 13, 0.5], [28, 132, 11, 2.1], [62, 178, 12, 1.2],
-      [98, 96, 10, 0.2], [154, 150, 13, 2.7], [188, 62, 11, 1.6]
-    ];
-    list.forEach(function (w) {
-      wireShape(c, w[0], w[1], w[2], w[2] * WIRE_ASPECT, w[3]);
-    });
-  });
+  // центры сгустков для рыхлых формаций
+  var CLUSTERS = [];
+  (function () {
+    var cr = rng(4242);
+    for (var i = 0; i < 26; i++) CLUSTERS.push([-1.15 + Math.pow(cr(), 0.6) * 2.4, (cr() * 2 - 1) * 1.05]);
+  })();
 
   function shapeFormation(pool, scale, offsetY) {
     var pairs = pool.length / 2;
@@ -265,13 +317,6 @@
       ];
     };
   }
-
-  // центры сгустков для рыхлых формаций
-  var CLUSTERS = [];
-  (function () {
-    var cr = rng(4242);
-    for (var i = 0; i < 26; i++) CLUSTERS.push([-1.15 + Math.pow(cr(), 0.6) * 2.4, (cr() * 2 - 1) * 1.05]);
-  })();
 
   /* --- формации: положение частицы в нормализованном пространстве --- */
   var FORMATIONS = {
@@ -290,16 +335,24 @@
       return [brainPoints[j * 2] * 0.62, brainPoints[j * 2 + 1] * 0.62];
     },
     // распыление плотное слева и плавно тающее вправо;
-    // мелкие каркасы лежат поверх него
+    // поверх него шесть цветных иконок сервисов
     cubes: function (p, i) {
       if (p.r[6] < 0.72) {
         // степенное распределение: слева плотно, вправо плавный хвост
         var x = -1.02 + Math.pow(p.r[0], 3.4) * 2.15;
         return [x, (p.r[1] * 2 - 1) * 0.62];
       }
-      var n = CUBES.length / 2;
+      var k = Math.min(ICONS.length - 1, (((p.r[6] - 0.72) / 0.28) * ICONS.length) | 0);
+      var ic = ICONS[k];
+      var n = ic.pool.length / 2;
       var j = (i * 7919) % n;
-      return [CUBES[j * 2] * 0.85, CUBES[j * 2 + 1] * 0.58];
+      // третьим элементом едет индекс цвета иконки;
+      // деление на 0.92 гасит вертикальное сжатие сцены
+      return [
+        ic.pool[j * 2] * ic.s + ic.px,
+        ic.pool[j * 2 + 1] * ic.s / 0.92 + ic.py,
+        ic.color
+      ];
     },
 
     // плотные абстрактные волны по низу экрана
@@ -537,9 +590,12 @@
     var pts = [];
     var sumX = 0, sumY = 0;
     var i;
+    var hasColors = false;
     for (i = 0; i < COUNT; i++) {
       var t = fn(particles[i], i);
-      pts.push({ x: t[0], y: t[1] });
+      // третий элемент цели — необязательный индекс цвета
+      pts.push({ x: t[0], y: t[1], col: t.length > 2 ? t[2] : -1 });
+      if (t.length > 2) hasColors = true;
       sumX += t[0];
       sumY += t[1];
     }
@@ -563,11 +619,13 @@
     pts.sort(function (a, b) { return a.ang - b.ang || a.rad - b.rad; });
 
     var arr = new Float32Array(COUNT * 2);
+    var cols = hasColors ? new Int16Array(COUNT) : null;
     for (i = 0; i < COUNT; i++) {
       arr[i * 2] = pts[i].x;
       arr[i * 2 + 1] = pts[i].y;
+      if (cols) cols[i] = pts[i].col;
     }
-    return arr;
+    return { pts: arr, colors: cols };
   }
 
   var STAGES = Array.prototype.slice.call(document.querySelectorAll('[data-formation]'))
@@ -580,7 +638,6 @@
         boost: FORM_BOOST[name] || 1,
         // на сцене с этим флагом калибр разбавлен крупными треугольниками
         mixed: el.dataset.size === 'mixed',
-        tint: el.dataset.tint || null,
         scale: scale
       };
       stage.fall = el.dataset.enter === 'fall';
@@ -591,10 +648,12 @@
         stage.vis = planet.vis;
         stage.update = planet.update;
       } else {
-        stage.pts = buildTargets(
+        var built = buildTargets(
           FORMATIONS[name] || FORMATIONS.scatter,
           (parseFloat(el.dataset.rotate) || 0) * Math.PI / 180
         );
+        stage.pts = built.pts;
+        stage.colorMap = built.colors;
       }
       return stage;
     });
@@ -688,7 +747,7 @@
     var vb = span.b.vis;
     var falling = span.b.fall && span.b !== span.a;
     var swirling = span.b.tornado && span.b !== span.a;
-    var tint = (e < 0.5 ? span.a.tint : span.b.tint);
+    var cmap = (e < 0.5 ? span.a.colorMap : span.b.colorMap);
     var i;
 
     // живые сцены (планета) доворачиваются вместе со скроллом
@@ -764,15 +823,7 @@
       var aStep = Math.min(ALPHA_STEPS - 1, Math.max(0, Math.round(alpha * ALPHA_STEPS) - 1));
       var lwStep = size > 3.9 ? 2 : (size > 2.6 ? 1 : 0);
       var colorIdx = p.color;
-      if (tint === 'grey') {
-        colorIdx = GREY_IDX[p.color % GREY_IDX.length];
-      } else if (tint === 'split') {
-        // левый кусок серый, правый оранжевый — они и стыкуются
-        var tx = e < 0.5 ? pa[i * 2] : pb[i * 2];
-        colorIdx = tx < 0
-          ? GREY_IDX[p.color % GREY_IDX.length]
-          : ORANGE_IDX[p.color % ORANGE_IDX.length];
-      }
+      if (cmap && cmap[i] >= 0) colorIdx = cmap[i];
 
       var bucket = (colorIdx * ALPHA_STEPS + aStep) * LINE_WIDTHS.length + lwStep;
 
