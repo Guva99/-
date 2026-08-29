@@ -654,7 +654,7 @@
       if (px < -size * 2 || px > width + size * 2 || py < -size * 2 || py > height + size * 2) continue;
 
       // самые крупные держим чуть бледнее — они читаются как ближние
-      var big = Math.min(1, (p.size - 2) / 5.5);
+      var big = Math.min(1, (p.size - 1.7) / 4.68);
       var twinkle = 0.66 + 0.34 * Math.sin(t * 1.15 + p.phase * 2);
       var alpha = (1 - big * 0.62) * (0.55 + depth * 0.45) * twinkle;
 
